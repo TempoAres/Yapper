@@ -53,10 +53,14 @@ describe("leaderboard presentation", () => {
     );
     assert.equal(buttons.length, 4);
     assert.equal(buttons[0]?.disabled, true);
+    const customIds = buttons.flatMap((button) =>
+      "custom_id" in button ? [button.custom_id] : [],
+    );
+    assert.equal(new Set(customIds).size, 4);
     assert.ok(buttons[2] && "custom_id" in buttons[2]);
     assert.equal(
       buttons[2].custom_id,
-      `yapper:leaderboard:weekly:2:${requesterId}`,
+      `yapper:leaderboard:next:weekly:2:${requesterId}`,
     );
     assert.equal(buttons[2]?.disabled, false);
   });
@@ -64,13 +68,13 @@ describe("leaderboard presentation", () => {
   it("accepts only valid Top 100 navigation IDs", () => {
     assert.deepEqual(
       parseLeaderboardButton(
-        `yapper:leaderboard:monthly:10:${requesterId}`,
+        `yapper:leaderboard:last:monthly:10:${requesterId}`,
       ),
-      { scope: "monthly", page: 10, requesterId },
+      { action: "last", scope: "monthly", page: 10, requesterId },
     );
     assert.equal(
       parseLeaderboardButton(
-        `yapper:leaderboard:monthly:11:${requesterId}`,
+        `yapper:leaderboard:last:monthly:11:${requesterId}`,
       ),
       null,
     );

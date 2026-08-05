@@ -16,6 +16,7 @@ import type {
 } from "../services/leaderboards/leaderboard-service.js";
 
 const buttonPrefix = "yapper:leaderboard";
+type LeaderboardButtonAction = "first" | "previous" | "next" | "last";
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
@@ -63,14 +64,16 @@ function createPeriodDescription(page: LeaderboardPage): string {
 }
 
 function createButtonCustomId(
+  action: LeaderboardButtonAction,
   scope: LeaderboardScope,
   page: number,
   requesterId: string,
 ): string {
-  return `${buttonPrefix}:${scope}:${page}:${requesterId}`;
+  return `${buttonPrefix}:${action}:${scope}:${page}:${requesterId}`;
 }
 
 export interface LeaderboardButtonRequest {
+  action: LeaderboardButtonAction;
   scope: LeaderboardScope;
   page: number;
   requesterId: string;
@@ -79,7 +82,7 @@ export interface LeaderboardButtonRequest {
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const match = /^yapper:leaderboard:(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:leaderboard:(first|previous|next|last):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
@@ -87,16 +90,17 @@ export function parseLeaderboardButton(
     return null;
   }
 
-  const page = Number(match[2]);
+  const page = Number(match[3]);
 
   if (!Number.isInteger(page) || page < 1 || page > 10) {
     return null;
   }
 
   return {
-    scope: match[1] as LeaderboardScope,
+    action: match[1] as LeaderboardButtonAction,
+    scope: match[2] as LeaderboardScope,
     page,
-    requesterId: match[3] as string,
+    requesterId: match[4] as string,
   };
 }
 
@@ -132,23 +136,39 @@ export function buildLeaderboardResponse(
   const nextPage = Math.min(page.totalPages, page.page + 1);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(createButtonCustomId(page.scope, firstPage, requesterId))
+      .setCustomId(
+        createButtonCustomId("first", page.scope, firstPage, requesterId),
+      )
       .setLabel("First")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page.page === firstPage),
     new ButtonBuilder()
-      .setCustomId(createButtonCustomId(page.scope, previousPage, requesterId))
+      .setCustomId(
+        createButtonCustomId(
+          "previous",
+          page.scope,
+          previousPage,
+          requesterId,
+        ),
+      )
       .setLabel("Previous")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page.page === firstPage),
     new ButtonBuilder()
-      .setCustomId(createButtonCustomId(page.scope, nextPage, requesterId))
+      .setCustomId(
+        createButtonCustomId("next", page.scope, nextPage, requesterId),
+      )
       .setLabel("Next")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(page.page === page.totalPages),
     new ButtonBuilder()
       .setCustomId(
-        createButtonCustomId(page.scope, page.totalPages, requesterId),
+        createButtonCustomId(
+          "last",
+          page.scope,
+          page.totalPages,
+          requesterId,
+        ),
       )
       .setLabel("Last")
       .setStyle(ButtonStyle.Secondary)
