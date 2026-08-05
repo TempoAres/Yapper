@@ -6,9 +6,13 @@ import {
 } from "discord.js";
 
 import { commandsByName } from "../commands/index.js";
+import type { CommandContext } from "../commands/command.js";
 import type { BotConfig } from "../config/environment.js";
 
-export async function startBot(config: BotConfig): Promise<Client> {
+export async function startBot(
+  config: BotConfig,
+  context: CommandContext,
+): Promise<Client> {
   // Phase 1 only needs Guilds. Message XP will add the appropriate message
   // intents deliberately in Phase 3, once its privacy rules are implemented.
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -34,7 +38,7 @@ export async function startBot(config: BotConfig): Promise<Client> {
     }
 
     try {
-      await command.execute(interaction);
+      await command.execute(interaction, context);
     } catch (error) {
       console.error(`Command /${interaction.commandName} failed:`, error);
 

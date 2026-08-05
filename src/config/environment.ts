@@ -6,6 +6,10 @@ export interface BotConfig {
   guildId: string | undefined;
 }
 
+export interface DatabaseConfig {
+  connectionString: string;
+}
+
 function readRequiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -27,5 +31,11 @@ export function loadBotConfig(): BotConfig {
     token: readRequiredEnvironmentVariable("DISCORD_TOKEN"),
     clientId: readRequiredEnvironmentVariable("DISCORD_CLIENT_ID"),
     guildId: process.env.DISCORD_GUILD_ID?.trim() || undefined,
+  };
+}
+
+export function loadDatabaseConfig(): DatabaseConfig {
+  return {
+    connectionString: readRequiredEnvironmentVariable("DATABASE_URL"),
   };
 }

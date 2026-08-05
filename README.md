@@ -1,81 +1,64 @@
 # Yapper
 
-Yapper is a custom, self-hosted Discord leveling bot for **bluddington**. This
-repository currently contains the Phase 1 foundation: a clean TypeScript bot,
-slash-command deployment, `/ping`, environment validation, the requested XP
-curve, basic curve tests, and service boundaries for the later features.
+Yapper is a custom, self-hosted Discord leveling bot for **bluddington**. The
+project uses TypeScript, Node.js, discord.js, PostgreSQL, and a deliberately
+simple architecture intended to be approachable for a first-time bot developer.
 
-## What works now
+## Current features
 
-- Logs a Discord bot in without hard-coding its token.
-- Registers slash commands in a private test server (recommended) or globally.
-- Handles `/ping` and replies with `Yap.`
-- Reports command failures without exposing details in Discord.
-- Calculates levels using `500 + 70 × level + 0.22 × level²`.
-- Includes placeholders for PostgreSQL, XP awards, leaderboards, XP roles,
-  legacy imports, and emoji tracking.
+- Discord login and guild-scoped slash-command deployment.
+- `/ping`, which replies with `Yap.`
+- `/rank [user]` and `/level [user]` using one shared handler.
+- `/xp info [user]` with the level formula and progress details.
+- PostgreSQL migrations that run safely once and use an advisory lock.
+- Guild-specific member XP, ranks, timestamped XP events, and daily totals.
+- Duplicate-event protection through `UNIQUE (guild_id, discord_event_id)`.
+- Separate raw legacy XP, adjusted legacy XP, and new Yapper XP columns.
+- A CLI tool for inserting test XP before real message XP is enabled.
+- Tests for the custom XP curve, level boundaries, and progress bars.
 
-PostgreSQL and real message XP are deliberately not connected in this first
-phase. Yapper therefore does not need privileged message intents yet and does
-not read or store message content.
+Real message XP is intentionally reserved for Phase 3. Yapper still does not
+read or store message content and does not need Message Content Intent yet.
 
 ## Prerequisites
 
-Install these on your Windows development computer:
+Install:
 
 1. [Node.js](https://nodejs.org/) 22.12 or newer.
-2. [pnpm](https://pnpm.io/installation): after installing Node, run
-   `npm install --global pnpm` in PowerShell.
-3. A Discord account and a private Discord server for testing.
-4. Git is recommended but not required to run the bot.
+2. pnpm: `npm install --global pnpm`
+3. [Docker Desktop](https://www.docker.com/products/docker-desktop/) for the
+   local PostgreSQL database.
+4. Git is recommended.
 
-Check the installations:
+Check the installations in PowerShell:
 
 ```powershell
 node --version
 pnpm --version
+docker --version
+docker compose version
 git --version
 ```
 
-## 1. Create the Discord application
+## Discord setup
 
-1. Open the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Select **New Application**, name it **Yapper**, and open it.
-3. On the **Bot** page, create the bot if Discord asks you to do so.
-4. Generate or reset the bot token and copy it somewhere temporary and safe.
-   Treat this token like a password. Never paste it into source code or commit it.
-5. Copy the **Application ID** from the application's general information page.
-6. In Discord, enable **Developer Mode** under User Settings → Advanced. Right-
-   click the private test server, choose **Copy Server ID**, and save that value.
+Create **Yapper** in the [Discord Developer Portal](https://discord.com/developers/applications).
+For Guild Install, use the `bot` and `applications.commands` scopes. Phase 2
+only needs **View Channels** and **Send Messages** permissions.
 
-For Phase 1, do not enable Message Content Intent. It is not needed by `/ping`.
+Never paste the bot token into chat, source code, or GitHub. If a token is ever
+shared, reset it immediately in the Developer Portal.
 
-## 2. Invite Yapper to the test server
+## Environment setup
 
-Use the application's installation/OAuth settings in the Developer Portal to
-create an invite with these scopes:
-
-- `bot`
-- `applications.commands`
-
-No administrator permission is needed for `/ping`. Add only the permissions a
-future feature actually requires; XP roles will later need **Manage Roles**.
-
-## 3. Configure the project
-
-Open PowerShell in this project folder and install dependencies:
+Install dependencies and create the local environment file:
 
 ```powershell
 pnpm install
-```
-
-Make a local environment file:
-
-```powershell
 Copy-Item .env.example .env
 ```
 
-Open `.env` and replace these three values:
+Fill the three Discord values in `.env`:
 
 ```dotenv
 DISCORD_TOKEN=your_secret_bot_token
@@ -83,82 +66,117 @@ DISCORD_CLIENT_ID=your_application_id
 DISCORD_GUILD_ID=your_private_test_server_id
 ```
 
-`.env` is ignored by Git. `.env.example` is safe to commit because it contains
-only placeholders.
+The included local database defaults match this existing line:
 
-## 4. Register `/ping`
+```dotenv
+DATABASE_URL=postgresql://yapper:change_me@localhost:5432/yapper
+```
 
-Deploy the commands once after creating them or changing their names/options:
+Both `.env` and the PostgreSQL data volume are excluded from Git. The password
+is only a local development default; production will use a strong secret.
+
+## Start PostgreSQL
+
+Start the database and check its health:
+
+```powershell
+docker compose up -d database
+docker compose ps
+```
+
+Apply migrations explicitly:
+
+```powershell
+pnpm db:migrate
+```
+
+Yapper also checks and applies pending migrations at startup, so this command
+is safe to run repeatedly.
+
+## Add test XP
+
+Enable Developer Mode in Discord, right-click your own user, and copy your User
+ID. Insert 5,000 test XP with:
+
+```powershell
+pnpm xp:add-test -- --user-id YOUR_DISCORD_USER_ID --amount 5000
+```
+
+This creates a timestamped admin XP event and updates the member and daily-total
+records in one transaction. It does not pretend that a chat message occurred.
+
+## Deploy and run
+
+Deploy commands after adding or changing command definitions:
 
 ```powershell
 pnpm deploy:commands
 ```
 
-Keeping `DISCORD_GUILD_ID` set makes test commands update quickly. If it is
-omitted, the script performs a global deployment, which Discord may take longer
-to show.
-
-## 5. Run Yapper
-
-For development (automatically restarts after saved code changes):
+Run Yapper in watch mode:
 
 ```powershell
 pnpm dev
 ```
 
-When the terminal says that Yapper is online, use `/ping` in the test server.
-The reply should be `Yap.` Press `Ctrl+C` in PowerShell to stop the bot.
+Then test `/ping`, `/rank`, `/level`, and `/xp info` in the private server.
+Press `Ctrl+C` to stop the bot.
 
-Useful checks:
+## Verification commands
 
 ```powershell
 pnpm typecheck
 pnpm test
 pnpm build
 pnpm check
-pnpm start
 ```
 
-`pnpm start` runs the previously built JavaScript from `dist`, so run
-`pnpm build` first. `pnpm check` runs type-checking, tests, and the build in one
-command and is a useful final check before committing changes.
+`pnpm check` runs type-checking, tests, and the production build together.
 
 ## Project structure
 
 ```text
+compose.yaml                Local PostgreSQL service
+migrations/                 Ordered SQL migrations
 scripts/
-  deploy-commands.ts       Uploads slash-command definitions to Discord
+  deploy-commands.ts        Register Discord slash commands
+  migrate.ts                Apply pending database migrations
+  add-test-xp.ts            Insert a safe test XP event
 src/
-  bot/                     Discord client and interaction routing
-  commands/                One module per slash command
-  config/                  Environment loading and validation
-  database/                PostgreSQL plan; implementation comes in Phase 2
-  services/
-    xp/                    XP contracts and the implemented level curve
-    leaderboards/          Weekly/monthly/yearly/all-time query contract
-    roles/                 Stacked level-role contract
-    imports/               Safe MEE6 import contract
-    emoji/                 Future emoji/reaction tracking contract
-tests/                     Small, fast automated tests
+  bot/                      Discord client and interaction routing
+  commands/                 Slash-command definitions and handlers
+  config/                   Environment validation
+  database/                 Pool, migrations, and PostgreSQL services
+  services/                 Domain contracts and XP calculations
+tests/                      Fast unit tests
 ```
 
-When adding a command, create its module in `src/commands`, export it from
-`src/commands/index.ts`, run `pnpm deploy:commands`, and restart the bot.
+## XP model
 
-## Planned phases
+XP needed for the next level is:
 
-1. **Complete:** local TypeScript bot, `/ping`, command registration, XP curve.
-2. Add PostgreSQL, migrations, repositories, and `/rank` + `/level` using test XP.
-3. Add privacy-conscious XP events, cooldowns, anti-spam, and daily totals.
-4. Add paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
-5. Add `/recent xp` and controlled moderator XP tools.
-6. Add stackable XP role rewards with role-hierarchy checks.
-7. Add auditable MEE6 preview/apply/rollback imports; use Arcane only for
-   comparison or calibration so overlapping XP is never double-counted.
-8. Add Docker Compose, VPS deployment, restart policy, backups, and monitoring.
-9. Add reminders, countdowns, Google search, and emoji/reaction statistics.
+```text
+round(500 + 70 * level + 0.22 * level * level)
+```
 
-The database phase will keep `guild_id` on all guild-owned records and enforce
-an idempotency constraint such as `(guild_id, discord_event_id)` on XP events.
-Historical MEE6 XP will be stored separately from new Yapper XP, with all-time
-XP calculated as adjusted legacy XP plus new Yapper XP.
+All-time XP is calculated as:
+
+```text
+adjusted legacy XP + new Yapper XP
+```
+
+Imported raw MEE6 XP remains separate for auditing. Arcane data will only be
+used for comparison/calibration because adding overlapping Arcane and MEE6 XP
+would double-count activity.
+
+## Roadmap
+
+1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
+2. **Current:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
+3. Privacy-conscious message XP, cooldowns, anti-spam, and daily totals.
+4. Paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
+5. `/recent xp` and controlled moderator XP tools.
+6. Stackable XP role rewards with role-hierarchy checks.
+7. Auditable MEE6 preview/apply/rollback imports.
+8. Production Docker deployment, backups, restarts, and monitoring.
+9. Reminders, countdowns, Google search, and emoji/reaction statistics.
