@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+!.env.production.example
+backups
+dist
+imports
+node_modules
+secrets
+*.log
+*.tmp

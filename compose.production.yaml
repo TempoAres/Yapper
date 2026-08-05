@@ -1,0 +1,115 @@
+name: yapper
+
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-yapper}
+      POSTGRES_USER: ${POSTGRES_USER:-yapper}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yapper-bot:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      DISCORD_TOKEN_FILE: /run/secrets/discord_token
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?Set DISCORD_CLIENT_ID in .env.production}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:?Set DISCORD_GUILD_ID in .env.production}
+      DATABASE_HOST: database
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-yapper}
+      DATABASE_USER: ${POSTGRES_USER:-yapper}
+      DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+      TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+      XP_MIN_PER_MESSAGE: ${XP_MIN_PER_MESSAGE:-20}
+      XP_MAX_PER_MESSAGE: ${XP_MAX_PER_MESSAGE:-30}
+      XP_COOLDOWN_SECONDS: ${XP_COOLDOWN_SECONDS:-30}
+      XP_DUPLICATE_WINDOW_SECONDS: ${XP_DUPLICATE_WINDOW_SECONDS:-120}
+      HEALTH_PORT: ${HEALTH_PORT:-3000}
+    secrets:
+      - discord_token
+      - postgres_password
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:' + process.env.HEALTH_PORT + '/healthz').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-yapper}
+      POSTGRES_USER: ${POSTGRES_USER:-yapper}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    secrets:
+      - postgres_password
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+      - ./deploy:/opt/yapper/deploy:ro
+    entrypoint: ["/bin/sh", "/opt/yapper/deploy/backup-loop.sh"]
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  database_data:
+
+secrets:
+  discord_token:
+    file: ./secrets/discord_token.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt

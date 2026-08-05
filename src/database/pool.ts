@@ -4,8 +4,9 @@ import type { DatabaseConfig } from "../config/environment.js";
 
 export function createDatabasePool(config: DatabaseConfig): Pool {
   const pool = new Pool({
-    connectionString: config.connectionString,
+    ...config,
     max: 10,
+    connectionTimeoutMillis: 10_000,
   });
 
   pool.on("error", (error) => {
