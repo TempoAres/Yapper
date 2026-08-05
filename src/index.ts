@@ -3,9 +3,11 @@ import { PostgresMemberXpService } from "./database/member-xp-service.js";
 import { runMigrations } from "./database/migrate.js";
 import { createDatabasePool } from "./database/pool.js";
 import { PostgresXpService } from "./database/postgres-xp-service.js";
+import { PostgresLeaderboardService } from "./database/leaderboard-service.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
+  loadLeaderboardConfig,
   loadMessageXpConfig,
 } from "./config/environment.js";
 import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
@@ -18,6 +20,10 @@ async function main(): Promise<void> {
   try {
     await runMigrations(pool);
     const memberXpService = new PostgresMemberXpService(pool);
+    const leaderboardService = new PostgresLeaderboardService(
+      pool,
+      loadLeaderboardConfig().defaultTimezone,
+    );
     const xpService = new PostgresXpService(pool);
     const messageXpTracker = new MessageXpTracker(
       xpService,
@@ -25,7 +31,7 @@ async function main(): Promise<void> {
     );
     const client = await startBot(
       botConfig,
-      { memberXpService },
+      { memberXpService, leaderboardService },
       messageXpTracker,
     );
     let isShuttingDown = false;
