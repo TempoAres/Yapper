@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { loadDatabaseConfig } from "../src/config/environment.js";
@@ -13,6 +13,10 @@ import {
   type ImportSummary,
   validateLegacyXpCsv,
 } from "../src/services/imports/import-service.js";
+import {
+  buildMee6ImportCsv,
+  fetchMee6Leaderboard,
+} from "../src/services/imports/mee6-fetcher.js";
 
 const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -125,6 +129,53 @@ function readSource(): ImportSource {
   }
 
   return source;
+}
+
+function readMee6GuildId(): string {
+  const explicitGuildId = readArgument("--guild-id");
+  const leaderboardUrl = readArgument("--leaderboard-url");
+  let guildIdFromUrl: string | undefined;
+
+  if (leaderboardUrl) {
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(leaderboardUrl);
+    } catch {
+      throw new Error("--leaderboard-url must be a complete MEE6 URL.");
+    }
+
+    if (
+      parsedUrl.protocol !== "https:" ||
+      (parsedUrl.hostname !== "mee6.xyz" && parsedUrl.hostname !== "www.mee6.xyz")
+    ) {
+      throw new Error("--leaderboard-url must use https://mee6.xyz/.");
+    }
+
+    const match = /^\/(?:[a-z]{2}\/)?leaderboard\/(\d{17,20})\/?$/i.exec(
+      parsedUrl.pathname,
+    );
+
+    if (!match?.[1]) {
+      throw new Error(
+        "--leaderboard-url must look like https://mee6.xyz/en/leaderboard/SERVER_ID.",
+      );
+    }
+
+    guildIdFromUrl = match[1];
+  }
+
+  if (explicitGuildId && guildIdFromUrl && explicitGuildId !== guildIdFromUrl) {
+    throw new Error("--guild-id does not match the supplied MEE6 leaderboard URL.");
+  }
+
+  const guildId = explicitGuildId ?? guildIdFromUrl;
+
+  if (!guildId) {
+    throw new Error("Supply --leaderboard-url or --guild-id for fetch-mee6.");
+  }
+
+  return guildId;
 }
 
 async function readImportFile(): Promise<{ filename: string; csv: string }> {
@@ -281,9 +332,59 @@ async function validateOrPreview(command: "validate" | "preview"): Promise<void>
   });
 }
 
+async function fetchAndSaveMee6(): Promise<void> {
+  const guildId = readMee6GuildId();
+  const outputFilename = readArgument("--output") ?? path.join("imports", "mee6.csv");
+  console.log(`Fetching public MEE6 leaderboard for server ${guildId}...`);
+  const result = await fetchMee6Leaderboard({
+    guildId,
+    onPageFetched: (page, rowCount) => {
+      console.log(`Fetched page ${page + 1}: ${rowCount.toLocaleString("en-US")} rows.`);
+    },
+  });
+  const csv = buildMee6ImportCsv(result.rows);
+  const validation = validateLegacyXpCsv(csv);
+
+  showValidation(validation);
+
+  if (!validation.valid) {
+    throw new Error("The downloaded MEE6 data failed Yapper's CSV validation.");
+  }
+
+  showTopRows(validation.rows);
+  await mkdir(path.dirname(path.resolve(outputFilename)), { recursive: true });
+
+  try {
+    await writeFile(outputFilename, csv, {
+      encoding: "utf8",
+      flag: hasFlag("--overwrite") ? "w" : "wx",
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(
+        `${path.resolve(outputFilename)} already exists. Keep it as a backup or re-run with --overwrite.`,
+      );
+    }
+
+    throw error;
+  }
+
+  console.log(`Downloaded ${result.guildName} across ${result.pagesFetched} page(s).`);
+  console.log(`Private CSV saved to: ${path.resolve(outputFilename)}`);
+  console.log("Usernames, avatars, and other MEE6 profile data were not saved.");
+  console.log(
+    `Next preview command: pnpm xp:import -- preview --file "${outputFilename}" --guild-id ${guildId} --expected-row-count ${validation.rows.length} --expected-total-raw-xp ${validation.totalRawXp}`,
+  );
+}
+
 async function main(): Promise<void> {
   const firstArgument = process.argv[2];
   const command = firstArgument === "--" ? process.argv[3] : firstArgument;
+
+  if (command === "fetch-mee6") {
+    await fetchAndSaveMee6();
+    return;
+  }
 
   if (command === "validate" || command === "preview") {
     await validateOrPreview(command);
@@ -343,7 +444,7 @@ async function main(): Promise<void> {
   }
 
   throw new Error(
-    "Unknown command. Use validate, preview, show, apply, or rollback.",
+    "Unknown command. Use fetch-mee6, validate, preview, show, apply, or rollback.",
   );
 }
 

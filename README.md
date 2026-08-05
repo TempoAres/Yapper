@@ -244,8 +244,21 @@ user_id,xp
 
 `user_id` must be the member's 17-20 digit Discord user ID. `xp` must be their
 non-negative, raw MEE6 XP—not a level. A harmless example is available at
-`examples/mee6-import.example.csv`. Put the real file in the ignored `imports`
-folder so it can never be committed:
+`examples/mee6-import.example.csv`.
+
+When the MEE6 leaderboard is public, Yapper can fetch every page automatically.
+The downloader waits between pages, retries temporary failures and rate limits,
+rejects duplicate or malformed rows, and discards usernames, avatars, and all
+other profile fields. Only the Discord ID and raw XP are written:
+
+```powershell
+pnpm xp:import -- fetch-mee6 --leaderboard-url "https://mee6.xyz/en/leaderboard/YOUR_SERVER_ID"
+```
+
+The file is saved as `imports\mee6.csv`. The root `imports` folder is ignored
+so private member data cannot be committed. If that filename already exists,
+the downloader preserves it; use `--overwrite` only after keeping any backup.
+To make an empty folder manually instead, run:
 
 ```powershell
 New-Item -ItemType Directory -Force imports
