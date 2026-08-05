@@ -8,14 +8,23 @@ import {
 import { commandsByName } from "../commands/index.js";
 import type { CommandContext } from "../commands/command.js";
 import type { BotConfig } from "../config/environment.js";
+import type { MessageXpTracker } from "../services/xp/message-xp-tracker.js";
+import { registerMessageXpListener } from "./message-xp-listener.js";
 
 export async function startBot(
   config: BotConfig,
   context: CommandContext,
+  messageXpTracker: MessageXpTracker,
 ): Promise<Client> {
-  // Phase 1 only needs Guilds. Message XP will add the appropriate message
-  // intents deliberately in Phase 3, once its privacy rules are implemented.
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+  });
+
+  registerMessageXpListener(client, messageXpTracker);
 
   client.once(Events.ClientReady, (readyClient) => {
     console.log(`Yapper is online as ${readyClient.user.tag}.`);

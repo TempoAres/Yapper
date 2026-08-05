@@ -16,9 +16,14 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Separate raw legacy XP, adjusted legacy XP, and new Yapper XP columns.
 - A CLI tool for inserting test XP before real message XP is enabled.
 - Tests for the custom XP curve, level boundaries, and progress bars.
+- Real message XP with configurable 20-30 XP awards and a 30-second cooldown.
+- Text, attachment-only, thread, forum, and voice-channel text-chat support.
+- In-memory duplicate/low-effort filtering without persisting message content.
 
-Real message XP is intentionally reserved for Phase 3. Yapper still does not
-read or store message content and does not need Message Content Intent yet.
+Yapper reads message content only long enough to decide whether a message is
+meaningful and repeated. It stores a temporary one-way hash for duplicate
+filtering; PostgreSQL receives IDs, timestamps, source type, and XP amount only.
+Images and attachments are never downloaded or stored.
 
 ## Prerequisites
 
@@ -46,6 +51,10 @@ Create **Yapper** in the [Discord Developer Portal](https://discord.com/develope
 For Guild Install, use the `bot` and `applications.commands` scopes. Phase 2
 only needs **View Channels** and **Send Messages** permissions.
 
+For Phase 3, open the application's **Bot** page and enable **Message Content
+Intent** under Privileged Gateway Intents. Yapper needs it for low-effort and
+duplicate filtering; it does not persist the content.
+
 Never paste the bot token into chat, source code, or GitHub. If a token is ever
 shared, reset it immediately in the Developer Portal.
 
@@ -70,6 +79,15 @@ The included local database defaults match this existing line:
 
 ```dotenv
 DATABASE_URL=postgresql://yapper:change_me@localhost:5432/yapper
+```
+
+Optional message-XP settings have safe defaults:
+
+```dotenv
+XP_MIN_PER_MESSAGE=20
+XP_MAX_PER_MESSAGE=30
+XP_COOLDOWN_SECONDS=30
+XP_DUPLICATE_WINDOW_SECONDS=120
 ```
 
 Both `.env` and the PostgreSQL data volume are excluded from Git. The password
@@ -120,6 +138,8 @@ pnpm dev
 ```
 
 Then test `/ping`, `/rank`, `/level`, and `/xp info` in the private server.
+Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
+confirm that 20-30 XP was added.
 Press `Ctrl+C` to stop the bot.
 
 ## Verification commands
@@ -172,8 +192,8 @@ would double-count activity.
 ## Roadmap
 
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
-2. **Current:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
-3. Privacy-conscious message XP, cooldowns, anti-spam, and daily totals.
+2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
+3. **Current:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
 4. Paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
 5. `/recent xp` and controlled moderator XP tools.
 6. Stackable XP role rewards with role-hierarchy checks.

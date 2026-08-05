@@ -2,10 +2,13 @@ import { startBot } from "./bot/create-bot.js";
 import { PostgresMemberXpService } from "./database/member-xp-service.js";
 import { runMigrations } from "./database/migrate.js";
 import { createDatabasePool } from "./database/pool.js";
+import { PostgresXpService } from "./database/postgres-xp-service.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
+  loadMessageXpConfig,
 } from "./config/environment.js";
+import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
 
 async function main(): Promise<void> {
   const botConfig = loadBotConfig();
@@ -15,7 +18,16 @@ async function main(): Promise<void> {
   try {
     await runMigrations(pool);
     const memberXpService = new PostgresMemberXpService(pool);
-    const client = await startBot(botConfig, { memberXpService });
+    const xpService = new PostgresXpService(pool);
+    const messageXpTracker = new MessageXpTracker(
+      xpService,
+      loadMessageXpConfig(),
+    );
+    const client = await startBot(
+      botConfig,
+      { memberXpService },
+      messageXpTracker,
+    );
     let isShuttingDown = false;
 
     const shutDown = async (signal: NodeJS.Signals): Promise<void> => {
