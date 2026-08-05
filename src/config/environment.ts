@@ -148,8 +148,8 @@ export function loadHealthConfig(): HealthConfig {
 }
 
 export function loadMessageXpConfig(): MessageXpConfig {
-  const minimumXp = readPositiveInteger("XP_MIN_PER_MESSAGE", 20);
-  const maximumXp = readPositiveInteger("XP_MAX_PER_MESSAGE", 30);
+  const minimumXp = readPositiveInteger("XP_MIN_PER_MESSAGE", 15);
+  const maximumXp = readPositiveInteger("XP_MAX_PER_MESSAGE", 40);
 
   if (maximumXp < minimumXp) {
     throw new Error("XP_MAX_PER_MESSAGE must be at least XP_MIN_PER_MESSAGE.");

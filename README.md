@@ -16,7 +16,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Separate raw legacy XP, adjusted legacy XP, and new Yapper XP columns.
 - A CLI tool for inserting test XP before real message XP is enabled.
 - Tests for the custom XP curve, level boundaries, and progress bars.
-- Real message XP with configurable 20-30 XP awards and a 30-second cooldown.
+- Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
 - `/leaderboard` with all-time, weekly, monthly, and yearly views.
@@ -108,8 +108,8 @@ DATABASE_URL=postgresql://yapper:change_me@localhost:5432/yapper
 Optional message-XP settings have safe defaults:
 
 ```dotenv
-XP_MIN_PER_MESSAGE=20
-XP_MAX_PER_MESSAGE=30
+XP_MIN_PER_MESSAGE=15
+XP_MAX_PER_MESSAGE=40
 XP_COOLDOWN_SECONDS=30
 XP_DUPLICATE_WINDOW_SECONDS=120
 ```
@@ -174,7 +174,7 @@ pnpm dev
 
 Then test `/ping`, `/rank`, `/level`, `/xp info`, and `/leaderboard` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
-confirm that 20-30 XP was added.
+confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
