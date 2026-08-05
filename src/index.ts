@@ -6,6 +6,8 @@ import { PostgresXpService } from "./database/postgres-xp-service.js";
 import { PostgresLeaderboardService } from "./database/leaderboard-service.js";
 import { PostgresAdminXpService } from "./database/admin-xp-service.js";
 import { PostgresRecentXpService } from "./database/recent-xp-service.js";
+import { PostgresRoleRewardService } from "./database/role-reward-service.js";
+import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
@@ -29,6 +31,11 @@ async function main(): Promise<void> {
     const xpService = new PostgresXpService(pool);
     const adminXpService = new PostgresAdminXpService(pool);
     const recentXpService = new PostgresRecentXpService(pool);
+    const roleRewardService = new PostgresRoleRewardService(pool);
+    const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
+      roleRewardService,
+      memberXpService,
+    );
     const messageXpTracker = new MessageXpTracker(
       xpService,
       loadMessageXpConfig(),
@@ -40,6 +47,8 @@ async function main(): Promise<void> {
         leaderboardService,
         adminXpService,
         recentXpService,
+        roleRewardService,
+        roleRewardCoordinator,
       },
       messageXpTracker,
     );

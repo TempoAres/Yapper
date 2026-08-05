@@ -4,11 +4,12 @@ export interface XpRoleReward {
   requiredLevel: number;
 }
 
-/** Phase 6 will implement stacked role grants and hierarchy error reporting. */
+export type AddRoleRewardResult =
+  | { status: "created"; reward: XpRoleReward }
+  | { status: "level_conflict" | "role_conflict"; reward: XpRoleReward };
+
 export interface RoleRewardService {
-  grantEarnedRoles(input: {
-    guildId: string;
-    userId: string;
-    level: number;
-  }): Promise<void>;
+  addReward(input: XpRoleReward): Promise<AddRoleRewardResult>;
+  removeReward(guildId: string, requiredLevel: number): Promise<XpRoleReward | null>;
+  listRewards(guildId: string): Promise<readonly XpRoleReward[]>;
 }

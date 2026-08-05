@@ -25,7 +25,11 @@ export async function startBot(
     ],
   });
 
-  registerMessageXpListener(client, messageXpTracker);
+  registerMessageXpListener(
+    client,
+    messageXpTracker,
+    context.roleRewardCoordinator,
+  );
 
   client.once(Events.ClientReady, (readyClient) => {
     console.log(`Yapper is online as ${readyClient.user.tag}.`);

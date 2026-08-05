@@ -10,6 +10,7 @@ import {
   MessageXpTracker,
   type MessageXpInput,
 } from "../services/xp/message-xp-tracker.js";
+import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 
 function determineSource(message: Message<true>): MessageXpInput["source"] {
   if (message.channel.isThread()) {
@@ -38,6 +39,7 @@ function isSupportedUserMessage(message: Message): message is Message<true> {
 export function registerMessageXpListener(
   client: Client,
   messageXpTracker: MessageXpTracker,
+  roleRewardCoordinator: RoleRewardCoordinator,
 ): void {
   client.on(Events.MessageCreate, async (message) => {
     if (!isSupportedUserMessage(message)) {
@@ -45,7 +47,7 @@ export function registerMessageXpListener(
     }
 
     try {
-      await messageXpTracker.process({
+      const result = await messageXpTracker.process({
         guildId: message.guildId,
         userId: message.author.id,
         channelId: message.channelId,
@@ -55,6 +57,17 @@ export function registerMessageXpListener(
         source: determineSource(message),
         createdAt: message.createdAt,
       });
+
+      if (result.awarded && message.member) {
+        const roleResult = await roleRewardCoordinator.syncMember(message.member);
+
+        if (roleResult.issues.length > 0) {
+          console.warn(
+            `Could not fully synchronize XP roles for guild ${message.guildId}, member ${message.author.id}:`,
+            roleResult.issues.map((issue) => issue.message).join(" | "),
+          );
+        }
+      }
     } catch (error) {
       console.error(
         `Could not process XP for guild ${message.guildId}, message ${message.id}:`,

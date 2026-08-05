@@ -27,6 +27,10 @@ simple architecture intended to be approachable for a first-time bot developer.
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
 - Non-negative Yapper XP enforcement and immutable imported legacy baselines.
+- Per-server `/xp roles add|remove|list|sync` configuration.
+- Stackable level-role catch-up after message XP, admin XP, or manual sync.
+- Clear diagnostics for missing roles, managed roles, missing Manage Roles
+  permission, Discord assignment failures, and role hierarchy conflicts.
 
 Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated. It stores a temporary one-way hash for duplicate
@@ -62,6 +66,11 @@ only needs **View Channels** and **Send Messages** permissions.
 For Phase 3, open the application's **Bot** page and enable **Message Content
 Intent** under Privileged Gateway Intents. Yapper needs it for low-effort and
 duplicate filtering; it does not persist the content.
+
+For Phase 6 role rewards, open **Server Settings -> Roles -> Yapper**, enable
+**Manage Roles**, and move Yapper's role above every XP reward role it should
+grant. Yapper does not need Administrator. Discord prevents every bot from
+granting managed/integration roles or roles at or above its own highest role.
 
 Never paste the bot token into chat, source code, or GitHub. If a token is ever
 shared, reset it immediately in the Developer Portal.
@@ -197,6 +206,28 @@ channel, timestamp, and optional reason. XP cannot be removed below zero.
 Moderator corrections intentionally do not change weekly, monthly, or yearly
 activity boards; those remain a record of timestamped earning activity.
 
+## Stackable XP roles
+
+Members with Manage Roles or Administrator can use these private commands:
+
+```text
+/xp roles add role:@Level-1 level:1
+/xp roles remove level:1
+/xp roles list
+/xp roles sync user:@member
+```
+
+Each level can grant one role, and each role can belong to one configured
+level. Rewards stack: a level 10 member receives every configured reward at
+levels 1 through 10 and keeps the earlier roles. Adding a new lower-level
+reward later is safe; manual sync or the member's next qualifying XP award
+performs catch-up.
+
+Removing a reward configuration or lowering XP does not automatically revoke
+roles from members. This avoids surprising destructive role changes. Automatic
+sync runs after message XP and applied moderator XP changes; it only adds
+missing roles the member currently qualifies for.
+
 ## Verification commands
 
 ```powershell
@@ -251,7 +282,7 @@ would double-count activity.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
 4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
 5. **Current:** `/recent xp` and controlled moderator XP tools.
-6. Stackable XP role rewards with role-hierarchy checks.
+6. **Current:** stackable XP role rewards with role-hierarchy checks.
 7. Auditable MEE6 preview/apply/rollback imports.
 8. Production Docker deployment, backups, restarts, and monitoring.
 9. Reminders, countdowns, Google search, and emoji/reaction statistics.
