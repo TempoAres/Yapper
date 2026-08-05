@@ -15,6 +15,7 @@ The migrations create:
 - `daily_xp_totals`
 - `xp_role_rewards`
 - `xp_imports`
+- `xp_import_rows` (validated raw/adjusted rows plus exact rollback snapshots)
 - `xp_admin_audit`
 
 `xp_admin_audit` keeps moderator corrections separate from activity awards.

@@ -6,6 +6,7 @@ coverage/
 
 # Secrets and local environment overrides
 .env
+/imports/
 .env.*
 !.env.example
 
