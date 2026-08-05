@@ -4,6 +4,8 @@ import { runMigrations } from "./database/migrate.js";
 import { createDatabasePool } from "./database/pool.js";
 import { PostgresXpService } from "./database/postgres-xp-service.js";
 import { PostgresLeaderboardService } from "./database/leaderboard-service.js";
+import { PostgresAdminXpService } from "./database/admin-xp-service.js";
+import { PostgresRecentXpService } from "./database/recent-xp-service.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
@@ -25,13 +27,20 @@ async function main(): Promise<void> {
       loadLeaderboardConfig().defaultTimezone,
     );
     const xpService = new PostgresXpService(pool);
+    const adminXpService = new PostgresAdminXpService(pool);
+    const recentXpService = new PostgresRecentXpService(pool);
     const messageXpTracker = new MessageXpTracker(
       xpService,
       loadMessageXpConfig(),
     );
     const client = await startBot(
       botConfig,
-      { memberXpService, leaderboardService },
+      {
+        memberXpService,
+        leaderboardService,
+        adminXpService,
+        recentXpService,
+      },
       messageXpTracker,
     );
     let isShuttingDown = false;

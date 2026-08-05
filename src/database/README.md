@@ -7,7 +7,7 @@ so Discord command handlers do not contain SQL.
 Every guild-owned table will include `guild_id`. XP events will use a unique
 guild/event identifier so Discord retries cannot award the same XP twice.
 
-The initial migration creates:
+The migrations create:
 
 - `guild_settings`
 - `guild_members`
@@ -15,6 +15,12 @@ The initial migration creates:
 - `daily_xp_totals`
 - `xp_role_rewards`
 - `xp_imports`
+- `xp_admin_audit`
+
+`xp_admin_audit` keeps moderator corrections separate from activity awards.
+It records before/after Yapper XP and a Discord interaction ID for auditability
+and retry safety. Admin corrections never overwrite imported legacy XP and do
+not alter the daily activity totals used by period leaderboards.
 
 Reminder, countdown, and emoji tables will be added with their features rather
 than committing unused schemas prematurely.

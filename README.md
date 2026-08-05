@@ -23,6 +23,10 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Top 10 by default with requester-bound buttons and pages through Top 100.
 - Europe/Berlin calendar boundaries and an honest launch-date label for the
   first partial weekly, monthly, and yearly periods.
+- Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
+  amounts, and message jump links without storing message content.
+- Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
+- Non-negative Yapper XP enforcement and immutable imported legacy baselines.
 
 Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated. It stores a temporary one-way hash for duplicate
@@ -168,6 +172,31 @@ server's configured timezone. During Yapper's first partial period, the embed
 clearly states that tracking begins at bot launch because historical period
 activity cannot be reconstructed from MEE6 all-time XP.
 
+## Moderator XP tools
+
+`/recent xp [user]` is an ephemeral debugging command for members with Manage
+Messages, Manage Server, or Administrator. It shows up to ten recent awards or
+moderator adjustments with their source, timestamp, channel, XP amount, and a
+message jump link when one exists. It never shows or stores message content.
+
+The `/xp admin` command group is ephemeral and requires Manage Server or
+Administrator:
+
+```text
+/xp admin view user:@member
+/xp admin add user:@member amount:25 reason:Correction
+/xp admin remove user:@member amount:25 reason:Duplicate award
+/xp admin set user:@member amount:5000 reason:Approved baseline correction
+```
+
+These commands change only the member's Yapper XP. Raw and adjusted legacy XP
+remain untouched. Applied changes store an audit record containing the target,
+moderator, operation, requested amount, before/after balances, interaction ID,
+channel, timestamp, and optional reason. XP cannot be removed below zero.
+
+Moderator corrections intentionally do not change weekly, monthly, or yearly
+activity boards; those remain a record of timestamped earning activity.
+
 ## Verification commands
 
 ```powershell
@@ -221,7 +250,7 @@ would double-count activity.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
 4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
-5. `/recent xp` and controlled moderator XP tools.
+5. **Current:** `/recent xp` and controlled moderator XP tools.
 6. Stackable XP role rewards with role-hierarchy checks.
 7. Auditable MEE6 preview/apply/rollback imports.
 8. Production Docker deployment, backups, restarts, and monitoring.
