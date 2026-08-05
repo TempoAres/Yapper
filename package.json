@@ -1,0 +1,29 @@
+{
+  "name": "yapper-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A custom Discord leveling bot for bluddington.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --project tsconfig.build.json",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/level-curve.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "deploy:commands": "tsx scripts/deploy-commands.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
