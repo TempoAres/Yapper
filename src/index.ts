@@ -1,4 +1,6 @@
 import { startBot } from "./bot/create-bot.js";
+import type { Client } from "discord.js";
+import type { Server } from "node:http";
 import { PostgresMemberXpService } from "./database/member-xp-service.js";
 import { runMigrations } from "./database/migrate.js";
 import { createDatabasePool } from "./database/pool.js";
@@ -11,15 +13,22 @@ import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
+  loadHealthConfig,
   loadLeaderboardConfig,
   loadMessageXpConfig,
 } from "./config/environment.js";
 import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
+import {
+  startHealthServer,
+  stopHealthServer,
+} from "./health/health-server.js";
 
 async function main(): Promise<void> {
   const botConfig = loadBotConfig();
   const databaseConfig = loadDatabaseConfig();
   const pool = createDatabasePool(databaseConfig);
+  let client: Client | undefined;
+  let healthServer: Server | undefined;
 
   try {
     await runMigrations(pool);
@@ -40,7 +49,7 @@ async function main(): Promise<void> {
       xpService,
       loadMessageXpConfig(),
     );
-    const client = await startBot(
+    client = await startBot(
       botConfig,
       {
         memberXpService,
@@ -52,6 +61,17 @@ async function main(): Promise<void> {
       },
       messageXpTracker,
     );
+    const healthPort = loadHealthConfig().port;
+
+    if (healthPort !== undefined) {
+      healthServer = await startHealthServer(healthPort, {
+        isDiscordReady: () => client?.isReady() ?? false,
+        checkDatabase: async () => {
+          await pool.query("SELECT 1");
+        },
+      });
+    }
+
     let isShuttingDown = false;
 
     const shutDown = async (signal: NodeJS.Signals): Promise<void> => {
@@ -61,13 +81,24 @@ async function main(): Promise<void> {
 
       isShuttingDown = true;
       console.log(`Received ${signal}; shutting Yapper down.`);
-      client.destroy();
+      await stopHealthServer(healthServer);
+      client?.destroy();
       await pool.end();
+      console.log("Yapper shut down cleanly.");
     };
 
-    process.once("SIGINT", () => void shutDown("SIGINT"));
-    process.once("SIGTERM", () => void shutDown("SIGTERM"));
+    const requestShutdown = (signal: NodeJS.Signals): void => {
+      void shutDown(signal).catch((error: unknown) => {
+        console.error("Yapper could not shut down cleanly:", error);
+        process.exitCode = 1;
+      });
+    };
+
+    process.once("SIGINT", () => requestShutdown("SIGINT"));
+    process.once("SIGTERM", () => requestShutdown("SIGTERM"));
   } catch (error) {
+    await stopHealthServer(healthServer);
+    client?.destroy();
     await pool.end();
     throw error;
   }

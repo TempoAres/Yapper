@@ -1,13 +1,25 @@
 import "dotenv/config";
 
+import { readFileSync } from "node:fs";
+
 export interface BotConfig {
   token: string;
   clientId: string;
   guildId: string | undefined;
 }
 
-export interface DatabaseConfig {
-  connectionString: string;
+export type DatabaseConfig =
+  | { connectionString: string }
+  | {
+      host: string;
+      port: number;
+      database: string;
+      user: string;
+      password: string;
+    };
+
+export interface HealthConfig {
+  port: number | undefined;
 }
 
 export interface MessageXpConfig {
@@ -27,6 +39,48 @@ function readRequiredEnvironmentVariable(name: string): string {
   if (!value) {
     throw new Error(
       `Missing ${name}. Copy .env.example to .env and add the required value.`,
+    );
+  }
+
+  return value;
+}
+
+function readOptionalSecret(name: string): string | undefined {
+  const directValue = process.env[name]?.trim();
+  const filePath = process.env[`${name}_FILE`]?.trim();
+
+  if (directValue && filePath) {
+    throw new Error(`Set either ${name} or ${name}_FILE, not both.`);
+  }
+
+  if (directValue) {
+    return directValue;
+  }
+
+  if (!filePath) {
+    return undefined;
+  }
+
+  try {
+    const fileValue = readFileSync(filePath, "utf8").trim();
+
+    if (!fileValue) {
+      throw new Error("the file is empty");
+    }
+
+    return fileValue;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not read ${name}_FILE at ${filePath}: ${reason}`);
+  }
+}
+
+function readRequiredSecret(name: string): string {
+  const value = readOptionalSecret(name);
+
+  if (!value) {
+    throw new Error(
+      `Missing ${name}. Set ${name} directly or point ${name}_FILE at a secret file.`,
     );
   }
 
@@ -55,21 +109,47 @@ function readPositiveInteger(name: string, defaultValue: number): number {
  */
 export function loadBotConfig(): BotConfig {
   return {
-    token: readRequiredEnvironmentVariable("DISCORD_TOKEN"),
+    token: readRequiredSecret("DISCORD_TOKEN"),
     clientId: readRequiredEnvironmentVariable("DISCORD_CLIENT_ID"),
     guildId: process.env.DISCORD_GUILD_ID?.trim() || undefined,
   };
 }
 
 export function loadDatabaseConfig(): DatabaseConfig {
+  const connectionString = readOptionalSecret("DATABASE_URL");
+
+  if (connectionString) {
+    return { connectionString };
+  }
+
   return {
-    connectionString: readRequiredEnvironmentVariable("DATABASE_URL"),
+    host: readRequiredEnvironmentVariable("DATABASE_HOST"),
+    port: readPositiveInteger("DATABASE_PORT", 5432),
+    database: readRequiredEnvironmentVariable("DATABASE_NAME"),
+    user: readRequiredEnvironmentVariable("DATABASE_USER"),
+    password: readRequiredSecret("DATABASE_PASSWORD"),
   };
 }
 
+export function loadHealthConfig(): HealthConfig {
+  const rawPort = process.env.HEALTH_PORT?.trim();
+
+  if (!rawPort) {
+    return { port: undefined };
+  }
+
+  const port = Number(rawPort);
+
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65_535) {
+    throw new Error("HEALTH_PORT must be a whole number from 1 to 65535.");
+  }
+
+  return { port };
+}
+
 export function loadMessageXpConfig(): MessageXpConfig {
-  const minimumXp = readPositiveInteger("XP_MIN_PER_MESSAGE", 20);
-  const maximumXp = readPositiveInteger("XP_MAX_PER_MESSAGE", 30);
+  const minimumXp = readPositiveInteger("XP_MIN_PER_MESSAGE", 15);
+  const maximumXp = readPositiveInteger("XP_MAX_PER_MESSAGE", 40);
 
   if (maximumXp < minimumXp) {
     throw new Error("XP_MAX_PER_MESSAGE must be at least XP_MIN_PER_MESSAGE.");

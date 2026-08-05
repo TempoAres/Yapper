@@ -16,7 +16,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Separate raw legacy XP, adjusted legacy XP, and new Yapper XP columns.
 - A CLI tool for inserting test XP before real message XP is enabled.
 - Tests for the custom XP curve, level boundaries, and progress bars.
-- Real message XP with configurable 20-30 XP awards and a 30-second cooldown.
+- Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
 - `/leaderboard` with all-time, weekly, monthly, and yearly views.
@@ -34,6 +34,10 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Strict MEE6 `user_id,xp` CSV validation with row, total, and known-user checks.
 - Auditable import previews, immutable raw XP, optional scaled XP, confirmed
   apply, and exact baseline rollback. Arcane data is comparison-only.
+- A non-root production image, private Compose network, health checks, clean
+  shutdowns, automatic restarts, rotated logs, and Docker-managed secrets.
+- Daily checksummed PostgreSQL backups with safe temporary-restore verification
+  and a deliberately guarded disaster-recovery command.
 
 Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated. It stores a temporary one-way hash for duplicate
@@ -104,14 +108,25 @@ DATABASE_URL=postgresql://yapper:change_me@localhost:5432/yapper
 Optional message-XP settings have safe defaults:
 
 ```dotenv
-XP_MIN_PER_MESSAGE=20
-XP_MAX_PER_MESSAGE=30
+XP_MIN_PER_MESSAGE=15
+XP_MAX_PER_MESSAGE=40
 XP_COOLDOWN_SECONDS=30
 XP_DUPLICATE_WINDOW_SECONDS=120
 ```
 
 Both `.env` and the PostgreSQL data volume are excluded from Git. The password
 is only a local development default; production will use a strong secret.
+
+## Production deployment
+
+The production stack is separate from this local development setup. It builds
+Yapper into a read-only, non-root container; waits for PostgreSQL to become
+healthy; checks Discord and database readiness; restarts after failures or host
+reboots; and writes validated daily backups to a host-readable folder.
+
+Follow the beginner-oriented [production deployment guide](deploy/README.md).
+The guide covers an Ubuntu VPS, private-repository access, secret creation,
+startup, updates, monitoring, backup verification, and guarded restoration.
 
 ## Start PostgreSQL
 
@@ -159,7 +174,7 @@ pnpm dev
 
 Then test `/ping`, `/rank`, `/level`, `/xp info`, and `/leaderboard` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
-confirm that 20-30 XP was added.
+confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
@@ -322,6 +337,9 @@ pnpm check
 
 ```text
 compose.yaml                Local PostgreSQL service
+compose.production.yaml     Hardened bot/database/backup production stack
+Dockerfile                  Multi-stage non-root production image
+deploy/                     VPS, backup, verification, and restore tooling
 migrations/                 Ordered SQL migrations
 scripts/
   deploy-commands.ts        Register Discord slash commands
@@ -363,6 +381,6 @@ would double-count activity.
 4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
 5. **Complete:** `/recent xp` and controlled moderator XP tools.
 6. **Complete:** stackable XP role rewards with role-hierarchy checks.
-7. **Current:** auditable MEE6 preview/apply/rollback imports.
-8. Production Docker deployment, backups, restarts, and monitoring.
+7. **Complete:** auditable MEE6 preview/apply/rollback imports.
+8. **Complete:** production Docker deployment, backups, restarts, and monitoring.
 9. Reminders, countdowns, Google search, and emoji/reaction statistics.

@@ -13,7 +13,7 @@
     "build": "tsc --project tsconfig.build.json",
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/level-curve.test.ts tests/message-xp-tracker.test.ts tests/leaderboard-period.test.ts tests/leaderboard-command.test.ts tests/admin-xp.test.ts tests/recent-xp-command.test.ts tests/role-sync.test.ts tests/import-validation.test.ts tests/mee6-fetcher.test.ts",
+    "test": "tsx --test tests/level-curve.test.ts tests/message-xp-tracker.test.ts tests/leaderboard-period.test.ts tests/leaderboard-command.test.ts tests/admin-xp.test.ts tests/recent-xp-command.test.ts tests/role-sync.test.ts tests/import-validation.test.ts tests/mee6-fetcher.test.ts tests/health-server.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "deploy:commands": "tsx scripts/deploy-commands.ts",
     "db:migrate": "tsx scripts/migrate.ts",
