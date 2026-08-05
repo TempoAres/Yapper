@@ -13,7 +13,7 @@
     "build": "tsc --project tsconfig.build.json",
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/level-curve.test.ts tests/message-xp-tracker.test.ts",
+    "test": "tsx --test tests/level-curve.test.ts tests/message-xp-tracker.test.ts tests/leaderboard-period.test.ts tests/leaderboard-command.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "deploy:commands": "tsx scripts/deploy-commands.ts",
     "db:migrate": "tsx scripts/migrate.ts",

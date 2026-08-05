@@ -17,6 +17,10 @@ export interface MessageXpConfig {
   duplicateWindowMilliseconds: number;
 }
 
+export interface LeaderboardConfig {
+  defaultTimezone: string;
+}
+
 function readRequiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -79,4 +83,16 @@ export function loadMessageXpConfig(): MessageXpConfig {
     duplicateWindowMilliseconds:
       readPositiveInteger("XP_DUPLICATE_WINDOW_SECONDS", 120) * 1_000,
   };
+}
+
+export function loadLeaderboardConfig(): LeaderboardConfig {
+  const defaultTimezone = process.env.TIMEZONE?.trim() || "Europe/Berlin";
+
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: defaultTimezone }).format();
+  } catch {
+    throw new Error(`TIMEZONE must be a valid IANA timezone, such as Europe/Berlin.`);
+  }
+
+  return { defaultTimezone };
 }

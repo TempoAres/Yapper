@@ -19,6 +19,10 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 20-30 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
+- `/leaderboard` with all-time, weekly, monthly, and yearly views.
+- Top 10 by default with requester-bound buttons and pages through Top 100.
+- Europe/Berlin calendar boundaries and an honest launch-date label for the
+  first partial weekly, monthly, and yearly periods.
 
 Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated. It stores a temporary one-way hash for duplicate
@@ -137,10 +141,32 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/rank`, `/level`, and `/xp info` in the private server.
+Then test `/ping`, `/rank`, `/level`, `/xp info`, and `/leaderboard` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 20-30 XP was added.
 Press `Ctrl+C` to stop the bot.
+
+## Leaderboards
+
+Run `/leaderboard` with no options for the all-time Top 10. Optional choices:
+
+```text
+/leaderboard scope:all page:1
+/leaderboard scope:weekly page:1
+/leaderboard scope:monthly page:1
+/leaderboard scope:yearly page:1
+```
+
+Each page contains ten members, and the First/Previous/Next/Last buttons cover
+the Top 100. Controls are bound to the person who opened the board so another
+member cannot unexpectedly change the displayed page.
+
+All-time XP includes adjusted legacy XP plus Yapper XP. Weekly, monthly, and
+yearly boards use timestamped Yapper daily totals only. Weeks begin Monday at
+00:00, months on the first day at 00:00, and years on January 1 at 00:00 in the
+server's configured timezone. During Yapper's first partial period, the embed
+clearly states that tracking begins at bot launch because historical period
+activity cannot be reconstructed from MEE6 all-time XP.
 
 ## Verification commands
 
@@ -167,7 +193,7 @@ src/
   commands/                 Slash-command definitions and handlers
   config/                   Environment validation
   database/                 Pool, migrations, and PostgreSQL services
-  services/                 Domain contracts and XP calculations
+  services/                 XP calculations and timezone-aware leaderboard logic
 tests/                      Fast unit tests
 ```
 
@@ -193,8 +219,8 @@ would double-count activity.
 
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
-3. **Current:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
-4. Paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
+3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
+4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
 5. `/recent xp` and controlled moderator XP tools.
 6. Stackable XP role rewards with role-hierarchy checks.
 7. Auditable MEE6 preview/apply/rollback imports.
