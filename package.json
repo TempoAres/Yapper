@@ -15,14 +15,18 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/level-curve.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "deploy:commands": "tsx scripts/deploy-commands.ts"
+    "deploy:commands": "tsx scripts/deploy-commands.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "xp:add-test": "tsx scripts/add-test-xp.ts"
   },
   "dependencies": {
     "discord.js": "^14.22.1",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "@types/pg": "^8.20.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

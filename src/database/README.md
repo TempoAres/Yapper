@@ -1,13 +1,13 @@
-# Database module (planned for Phase 2)
+# Database module
 
-This folder will contain the PostgreSQL connection, migrations, repositories,
-and transaction helpers. Database access will stay behind service/repository
-interfaces so Discord command handlers do not contain SQL.
+This folder contains the PostgreSQL pool, migration runner, XP transaction,
+and rank query implementation. Database access stays behind service interfaces
+so Discord command handlers do not contain SQL.
 
 Every guild-owned table will include `guild_id`. XP events will use a unique
 guild/event identifier so Discord retries cannot award the same XP twice.
 
-Planned tables:
+The initial migration creates:
 
 - `guild_settings`
 - `guild_members`
@@ -15,7 +15,6 @@ Planned tables:
 - `daily_xp_totals`
 - `xp_role_rewards`
 - `xp_imports`
-- `reminders`
-- `countdowns`
-- `emoji_events`
-- `emoji_daily_totals`
+
+Reminder, countdown, and emoji tables will be added with their features rather
+than committing unused schemas prematurely.

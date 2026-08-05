@@ -6,6 +6,7 @@ import {
   totalXpForLevel,
   xpToNextLevel,
 } from "../src/services/xp/level-curve.js";
+import { buildProgressBar } from "../src/services/xp/progress-bar.js";
 
 describe("xpToNextLevel", () => {
   it("matches the requested example values", () => {
@@ -64,5 +65,19 @@ describe("calculateLevelProgress", () => {
     assert.equal(result.xpInCurrentLevel, earnedThisLevel);
     assert.equal(result.xpNeededForNextLevel, 611);
     assert.equal(result.progress, 0.5);
+  });
+});
+
+describe("buildProgressBar", () => {
+  it("renders empty, partial, and full progress", () => {
+    assert.equal(buildProgressBar(0, 4), "░░░░");
+    assert.equal(buildProgressBar(0.5, 4), "██░░");
+    assert.equal(buildProgressBar(1, 4), "████");
+  });
+
+  it("rejects invalid progress and widths", () => {
+    assert.throws(() => buildProgressBar(-0.1), RangeError);
+    assert.throws(() => buildProgressBar(1.1), RangeError);
+    assert.throws(() => buildProgressBar(0.5, 0), RangeError);
   });
 });

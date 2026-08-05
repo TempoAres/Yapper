@@ -10,9 +10,9 @@ export type XpSource =
 export interface AwardXpInput {
   guildId: string;
   userId: string;
-  channelId: string;
+  channelId: string | null;
   discordEventId: string;
-  messageId?: string;
+  messageId: string | null;
   amount: number;
   source: XpSource;
   createdAt: Date;
