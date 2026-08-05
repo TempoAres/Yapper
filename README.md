@@ -31,6 +31,9 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Stackable level-role catch-up after message XP, admin XP, or manual sync.
 - Clear diagnostics for missing roles, managed roles, missing Manage Roles
   permission, Discord assignment failures, and role hierarchy conflicts.
+- Strict MEE6 `user_id,xp` CSV validation with row, total, and known-user checks.
+- Auditable import previews, immutable raw XP, optional scaled XP, confirmed
+  apply, and exact baseline rollback. Arcane data is comparison-only.
 
 Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated. It stores a temporary one-way hash for duplicate
@@ -228,6 +231,82 @@ roles from members. This avoids surprising destructive role changes. Automatic
 sync runs after message XP and applied moderator XP changes; it only adds
 missing roles the member currently qualifies for.
 
+## MEE6 legacy XP import
+
+The importer deliberately accepts a small CSV schema so usernames, levels, and
+unrelated export data cannot be mistaken for XP:
+
+```csv
+user_id,xp
+123456789012345678,250000
+234567890123456789,125000
+```
+
+`user_id` must be the member's 17-20 digit Discord user ID. `xp` must be their
+non-negative, raw MEE6 XP—not a level. A harmless example is available at
+`examples/mee6-import.example.csv`.
+
+When the MEE6 leaderboard is public, Yapper can fetch every page automatically.
+The downloader waits between pages, retries temporary failures and rate limits,
+rejects duplicate or malformed rows, and discards usernames, avatars, and all
+other profile fields. Only the Discord ID and raw XP are written:
+
+```powershell
+pnpm xp:import -- fetch-mee6 --leaderboard-url "https://mee6.xyz/en/leaderboard/YOUR_SERVER_ID"
+```
+
+The file is saved as `imports\mee6.csv`. The root `imports` folder is ignored
+so private member data cannot be committed. If that filename already exists,
+the downloader preserves it; use `--overwrite` only after keeping any backup.
+To make an empty folder manually instead, run:
+
+```powershell
+New-Item -ItemType Directory -Force imports
+# Save the private data as .\imports\mee6.csv
+```
+
+First validate the file without touching PostgreSQL. Known totals make an
+accidentally incomplete export fail validation; repeat `--expected-user` for
+several recognizable top members:
+
+```powershell
+pnpm xp:import -- validate --file .\imports\mee6.csv --expected-row-count 5500 --expected-total-raw-xp TOTAL --expected-user USER_ID:RAW_XP
+```
+
+Remove an expectation only when that number truly is not available. Validation
+prints the ten highest raw-XP rows for comparison. After it passes, store an
+auditable preview. This saves the rows and a SHA-256 file fingerprint but does
+not change any member's XP:
+
+```powershell
+pnpm xp:import -- preview --file .\imports\mee6.csv --expected-row-count 5500 --expected-total-raw-xp TOTAL --expected-user USER_ID:RAW_XP
+pnpm xp:import -- show --import-id IMPORT_ID
+```
+
+The multiplier defaults to `1`, preserving raw XP as adjusted XP. To scale the
+legacy baseline, add (for example) `--multiplier 0.75` to both validation and
+preview. Raw MEE6 XP always remains unchanged for auditing; only adjusted
+legacy XP participates in all-time XP.
+
+Applying or rolling back requires both a preview ID and the explicit
+`--confirm` safety flag:
+
+```powershell
+pnpm xp:import -- apply --import-id IMPORT_ID --confirm
+pnpm xp:import -- rollback --import-id IMPORT_ID --confirm
+```
+
+Only one applied MEE6 baseline can exist per server. Apply is transactional, so
+either every row changes or none do. Rollback restores every prior legacy
+baseline and preserves any Yapper XP earned after import. It refuses to proceed
+if an imported baseline was changed unexpectedly, preventing silent data loss.
+Imported XP affects ranks immediately. Stackable Discord roles catch up on a
+member's next qualifying XP award or through `/xp roles sync user:@member`.
+
+Arcane can be validated and stored as a comparison preview with `--source
+arcane`, but the tool refuses to apply it. Adding overlapping Arcane and MEE6
+history would double-count the same activity.
+
 ## Verification commands
 
 ```powershell
@@ -248,6 +327,7 @@ scripts/
   deploy-commands.ts        Register Discord slash commands
   migrate.ts                Apply pending database migrations
   add-test-xp.ts            Insert a safe test XP event
+  import-xp.ts              Validate/preview/apply/rollback legacy XP
 src/
   bot/                      Discord client and interaction routing
   commands/                 Slash-command definitions and handlers
@@ -281,8 +361,8 @@ would double-count activity.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
 4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
-5. **Current:** `/recent xp` and controlled moderator XP tools.
-6. **Current:** stackable XP role rewards with role-hierarchy checks.
-7. Auditable MEE6 preview/apply/rollback imports.
+5. **Complete:** `/recent xp` and controlled moderator XP tools.
+6. **Complete:** stackable XP role rewards with role-hierarchy checks.
+7. **Current:** auditable MEE6 preview/apply/rollback imports.
 8. Production Docker deployment, backups, restarts, and monitoring.
 9. Reminders, countdowns, Google search, and emoji/reaction statistics.
