@@ -10,6 +10,13 @@ export interface DatabaseConfig {
   connectionString: string;
 }
 
+export interface MessageXpConfig {
+  minimumXp: number;
+  maximumXp: number;
+  cooldownMilliseconds: number;
+  duplicateWindowMilliseconds: number;
+}
+
 function readRequiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -17,6 +24,22 @@ function readRequiredEnvironmentVariable(name: string): string {
     throw new Error(
       `Missing ${name}. Copy .env.example to .env and add the required value.`,
     );
+  }
+
+  return value;
+}
+
+function readPositiveInteger(name: string, defaultValue: number): number {
+  const rawValue = process.env[name]?.trim();
+
+  if (!rawValue) {
+    return defaultValue;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive whole number.`);
   }
 
   return value;
@@ -37,5 +60,23 @@ export function loadBotConfig(): BotConfig {
 export function loadDatabaseConfig(): DatabaseConfig {
   return {
     connectionString: readRequiredEnvironmentVariable("DATABASE_URL"),
+  };
+}
+
+export function loadMessageXpConfig(): MessageXpConfig {
+  const minimumXp = readPositiveInteger("XP_MIN_PER_MESSAGE", 20);
+  const maximumXp = readPositiveInteger("XP_MAX_PER_MESSAGE", 30);
+
+  if (maximumXp < minimumXp) {
+    throw new Error("XP_MAX_PER_MESSAGE must be at least XP_MIN_PER_MESSAGE.");
+  }
+
+  return {
+    minimumXp,
+    maximumXp,
+    cooldownMilliseconds:
+      readPositiveInteger("XP_COOLDOWN_SECONDS", 30) * 1_000,
+    duplicateWindowMilliseconds:
+      readPositiveInteger("XP_DUPLICATE_WINDOW_SECONDS", 120) * 1_000,
   };
 }
