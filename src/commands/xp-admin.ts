@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 
 import type { CommandContext } from "./command.js";
+import { describeRoleSync } from "./xp-roles.js";
 import type { AdminXpOperation } from "../services/xp/admin-xp-service.js";
 
 export type AdminXpSubcommand = "view" | AdminXpOperation;
@@ -134,6 +135,26 @@ export async function executeAdminXpCommand(
     interaction.guildId,
     user.id,
   );
+  let roleSyncDescription: string | null = null;
+
+  if (result.status === "applied") {
+    const member = await interaction.guild?.members.fetch(user.id).catch(() => null);
+
+    if (!member) {
+      roleSyncDescription =
+        "The XP change succeeded, but the member could not be fetched for role synchronization.";
+    } else {
+      try {
+        roleSyncDescription = describeRoleSync(
+          await context.roleRewardCoordinator.syncMember(member),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        roleSyncDescription = `The XP change succeeded, but role synchronization failed: ${detail}`;
+      }
+    }
+  }
+
   const embed = new EmbedBuilder()
     .setColor(result.delta >= 0 ? 0x57f287 : 0xed4245)
     .setTitle(
@@ -149,6 +170,9 @@ export async function executeAdminXpCommand(
       { name: "After", value: formatXp(result.newXp), inline: true },
       { name: "All-time XP", value: formatXp(stats.allTimeXp), inline: true },
       ...(reason ? [{ name: "Reason", value: reason.slice(0, 200) }] : []),
+      ...(roleSyncDescription
+        ? [{ name: "Stacked role sync", value: roleSyncDescription }]
+        : []),
     )
     .setFooter({
       text: "Audited change - period activity leaderboards are unchanged",

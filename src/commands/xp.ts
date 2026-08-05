@@ -9,6 +9,11 @@ import {
   executeAdminXpCommand,
   type AdminXpSubcommand,
 } from "./xp-admin.js";
+import {
+  buildRoleSubcommandGroup,
+  executeXpRolesCommand,
+  type XpRolesSubcommand,
+} from "./xp-roles.js";
 
 const addReasonOption = (
   builder: SlashCommandSubcommandBuilder,
@@ -112,7 +117,8 @@ export const xpCommand: BotCommand = {
               ),
           ),
         ),
-    ),
+    )
+    .addSubcommandGroup(buildRoleSubcommandGroup),
 
   async execute(interaction, context) {
     const group = interaction.options.getSubcommandGroup(false);
@@ -122,6 +128,15 @@ export const xpCommand: BotCommand = {
         interaction,
         context,
         interaction.options.getSubcommand(true) as AdminXpSubcommand,
+      );
+      return;
+    }
+
+    if (group === "roles") {
+      await executeXpRolesCommand(
+        interaction,
+        context,
+        interaction.options.getSubcommand(true) as XpRolesSubcommand,
       );
       return;
     }

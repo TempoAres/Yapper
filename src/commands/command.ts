@@ -7,12 +7,16 @@ import type { MemberXpService } from "../services/xp/member-xp-service.js";
 import type { LeaderboardService } from "../services/leaderboards/leaderboard-service.js";
 import type { AdminXpService } from "../services/xp/admin-xp-service.js";
 import type { RecentXpService } from "../services/xp/recent-xp-service.js";
+import type { RoleRewardService } from "../services/roles/role-reward-service.js";
+import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 
 export interface CommandContext {
   memberXpService: MemberXpService;
   leaderboardService: LeaderboardService;
   adminXpService: AdminXpService;
   recentXpService: RecentXpService;
+  roleRewardService: RoleRewardService;
+  roleRewardCoordinator: RoleRewardCoordinator;
 }
 
 export interface SlashCommandData {
