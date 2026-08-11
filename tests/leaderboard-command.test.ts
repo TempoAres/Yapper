@@ -8,6 +8,7 @@ import {
   leaderboardCommand,
   parseLeaderboardButton,
   topCommand,
+  xpLeaderboardCommand,
 } from "../src/commands/leaderboard.js";
 import type { LeaderboardPage } from "../src/services/leaderboards/leaderboard-service.js";
 
@@ -86,6 +87,27 @@ describe("leaderboard presentation", () => {
     assert.equal(json.description, "5 Aug 2026 • Europe/Berlin");
     assert.equal(rows[0]?.detail, "LVL: +0 XP: +5,073");
     assert.equal(rows[1]?.detail, "LVL: +2 XP: +950");
+    assert.ok(!("progress" in (rows[0] ?? {})));
+  });
+
+  it("renders the standalone all-time XP leaderboard", async () => {
+    const page = examplePage({
+      scope: "all",
+      periodStart: null,
+      periodEnd: null,
+      launchLimited: false,
+    });
+    const rows = createLeaderboardImageRows(page, "xp");
+    const response = await buildLeaderboardResponse(
+      page,
+      requesterId,
+      "xp",
+    );
+    const embed = response.embeds?.[0];
+
+    assert.ok(embed && "toJSON" in embed);
+    assert.equal(embed.toJSON().title, "All-time XP Leaderboard");
+    assert.equal(rows[0]?.detail, "XP: 1,593,932");
     assert.ok(!("progress" in (rows[0] ?? {})));
   });
 
@@ -168,12 +190,25 @@ describe("leaderboard presentation", () => {
       ),
       null,
     );
+    assert.deepEqual(
+      parseLeaderboardButton(
+        `yapper:lb:next:xp:all:2:${requesterId}`,
+      ),
+      {
+        action: "next",
+        view: "xp",
+        scope: "all",
+        page: 2,
+        requesterId,
+      },
+    );
     assert.equal(parseLeaderboardButton("some-other-button"), null);
   });
 
   it("publishes /lb with four period subcommands and optional pages", () => {
     const leaderboard = leaderboardCommand.data.toJSON();
     const top = topCommand.data.toJSON();
+    const xpLeaderboard = xpLeaderboardCommand.data.toJSON();
 
     assert.equal(leaderboard.name, "lb");
     assert.deepEqual(
@@ -191,6 +226,11 @@ describe("leaderboard presentation", () => {
     assert.deepEqual(
       top.options?.map((option) => option.name),
       ["weekly", "monthly", "yearly"],
+    );
+    assert.equal(xpLeaderboard.name, "xplb");
+    assert.deepEqual(
+      xpLeaderboard.options?.map((option) => option.name),
+      ["page"],
     );
   });
 });

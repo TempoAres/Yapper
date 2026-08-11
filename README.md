@@ -8,6 +8,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 
 - Discord login and guild-scoped slash-command deployment.
 - `/ping`, which replies with `Yap.`
+- `/cmd`, which lists every user-facing command by category.
 - `/rank [user]` for a member's level, rank, and progress.
 - `/xp info [user]` with the level formula and progress details.
 - PostgreSQL migrations that run safely once and use an advisory lock.
@@ -20,8 +21,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/lb` with all-time level progress by default and optional weekly, monthly,
-  yearly, and page choices.
+- `/lb all|weekly|monthly|yearly` level leaderboards with optional pages.
+- `/xplb [page]` for the paginated all-time XP leaderboard.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
 - Arcane-style image leaderboards with avatars, one compact row per member,
@@ -183,8 +184,8 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/rank`, `/xp info`, `/lb all`, and `/react received` in the
-private server.
+Then test `/ping`, `/cmd`, `/rank`, `/xp info`, `/lb all`, `/xplb`, and
+`/react received` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
@@ -203,6 +204,9 @@ Press `Ctrl+C` to stop the bot.
 Every subcommand accepts an optional `page` from 1 to 10. The all-time board
 shows each member's current level and progress. Weekly, monthly, and yearly
 boards show the levels and XP gained during the selected period.
+
+`/xplb` shows the separate all-time XP leaderboard. It accepts an optional
+`page` from 1 to 10 and uses the same requester-bound pagination buttons.
 
 Historical records rank every member by their personal best period so far:
 
