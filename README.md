@@ -20,8 +20,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/lb` with all-time level progress by default, optional period choices, and
-  an optional exact-XP view.
+- `/lb` with all-time level progress by default and optional weekly, monthly,
+  yearly, and page choices.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
 - Arcane-style image leaderboards with avatars, one compact row per member,
@@ -203,14 +203,8 @@ Weekly, monthly, and yearly periods are optional choices:
 ```
 
 They rank by the selected period while showing each member's current level and
-progress instead of an XP number. For exact XP, use the separate XP view:
-
-```text
-/lb xp:true
-/lb period:weekly xp:true
-/lb period:monthly xp:true
-/lb period:yearly xp:true
-```
+progress instead of an XP number. The public leaderboard intentionally has no
+exact-XP mode.
 
 Historical records rank every member by their personal best period so far:
 
@@ -434,7 +428,7 @@ would double-count activity.
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, and `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
-4. **Complete:** Arcane-style image level, XP, reaction, and historical-record leaderboards in Europe/Berlin time.
+4. **Complete:** Arcane-style image level, reaction, and historical-record leaderboards in Europe/Berlin time.
 5. **Complete:** `/recent xp` and controlled moderator XP tools.
 6. **Complete:** stackable XP role rewards with role-hierarchy checks.
 7. **Complete:** auditable MEE6 preview/apply/rollback imports.

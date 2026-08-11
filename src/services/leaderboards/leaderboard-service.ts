@@ -1,7 +1,6 @@
 export type LeaderboardScope = "all" | "weekly" | "monthly" | "yearly";
 export type LeaderboardRecordScope = Exclude<LeaderboardScope, "all">;
 export type LeaderboardKind = "current" | "record";
-export type LeaderboardDisplay = "level" | "xp";
 
 export const LEADERBOARD_PAGE_SIZE = 10;
 export const LEADERBOARD_MAX_ENTRIES = 100;
