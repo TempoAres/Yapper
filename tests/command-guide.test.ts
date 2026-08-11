@@ -22,6 +22,7 @@ describe("command guide", () => {
         "XP leaderboard",
         "Activity records",
         "Reaction leaderboards",
+        "Emoji leaderboards",
         "Personal progress",
         "Level rewards",
         "Other",
@@ -29,6 +30,8 @@ describe("command guide", () => {
     );
     assert.match(json.fields?.[0]?.value ?? "", /`\/lb all`/);
     assert.match(json.fields?.[1]?.value ?? "", /`\/xplb`/);
+    const other = json.fields?.find((field) => field.name === "Other");
+    assert.match(other?.value ?? "", /`\?g <query>`/);
     assert.doesNotMatch(
       json.fields?.map((field) => field.value).join("\n") ?? "",
       /administrator|moderator|sync-all/,

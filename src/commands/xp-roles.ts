@@ -8,6 +8,7 @@ import {
 
 import type { CommandContext } from "./command.js";
 import { buildRewardsResponse } from "./rewards.js";
+import { yapperColors } from "../presentation/colors.js";
 import type {
   GuildRoleSyncProgress,
   GuildRoleSyncResult,
@@ -104,7 +105,7 @@ function buildBulkSyncEmbed(result: GuildRoleSyncResult): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(
       result.status === "blocked" || result.failedMemberCount > 0
-        ? 0xfee75c
+        ? yapperColors.magenta
         : 0x57f287,
     )
     .setTitle(

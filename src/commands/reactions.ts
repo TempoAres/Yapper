@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand, CommandContext } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import {
   renderLeaderboardImage,
   resolveLeaderboardProfiles,
@@ -152,7 +153,9 @@ export async function buildReactionLeaderboardResponse(
   });
   const fileName = `yapper-reactions-${page.metric}-page-${page.page}.png`;
   const embed = new EmbedBuilder()
-    .setColor(page.metric === "received" ? 0xeb459e : 0xfee75c)
+    .setColor(
+      page.metric === "received" ? yapperColors.violet : yapperColors.magenta,
+    )
     .setTitle(metricLabels[page.metric])
     .setImage(`attachment://${fileName}`)
     .setFooter({

@@ -9,7 +9,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Discord login and guild-scoped slash-command deployment.
 - `/ping`, which replies with `Yap.`
 - `/cmd`, which lists every user-facing command by category.
-- `/rank [user]` for a member's level, rank, and progress.
+- `?g <query>`, which replies with a safely encoded Google search link.
+- Image-based `/rank [user]` cards for member level, rank, XP, and progress.
 - `/xp info [user]` with the level formula and progress details.
 - PostgreSQL migrations that run safely once and use an advisory lock.
 - Guild-specific member XP, ranks, timestamped XP events, and daily totals.
@@ -25,6 +26,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
+- `/emoji all|weekly|monthly|yearly` message-emoji leaderboards with Top Users
+  and Top Emojis views.
 - Arcane-style image leaderboards with avatars, one compact row per member,
   rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
@@ -48,9 +51,10 @@ simple architecture intended to be approachable for a first-time bot developer.
   and a deliberately guarded disaster-recovery command.
 
 Yapper reads message content only long enough to decide whether a message is
-meaningful and repeated. It stores a temporary one-way hash for duplicate
-filtering; PostgreSQL receives IDs, timestamps, source type, and XP amount only.
-Images and attachments are never downloaded or stored.
+meaningful and repeated, detect `?g`, and count eligible emoji. It stores a
+temporary one-way hash for duplicate filtering; PostgreSQL receives IDs,
+timestamps, source type, XP amounts, emoji keys, and emoji counts only. Message
+text, images, and attachments are never downloaded or stored.
 
 ## Prerequisites
 
@@ -184,8 +188,8 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/cmd`, `/rank`, `/xp info`, `/lb all`, `/xplb`, and
-`/react received` in the private server.
+Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `/rank`, `/xp info`, `/lb all`,
+`/xplb`, and `/react received` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
@@ -238,6 +242,19 @@ counts when this feature is deployed. Bot reactions and reactions to bot
 messages are ignored, and self-reactions do not count. Duplicate gateway events
 cannot double-count a reaction. Removing a reaction, emoji, or message also
 removes it from the totals.
+
+## Message emoji leaderboards
+
+`/emoji all`, `/emoji weekly`, `/emoji monthly`, and `/emoji yearly` open an
+Arcane-style image leaderboard. **Top Users** ranks members by total emoji
+occurrences in new messages, while **Top Emojis** ranks the emoji themselves.
+Buttons switch between both views and paginate through the Top 100.
+
+Tracking begins only when this feature is deployed; Yapper does not scan old
+messages. Every Unicode emoji grapheme and every occurrence of a Bluddington
+custom emoji counts. External custom emoji, bot messages, and webhooks are
+ignored. Stored rows contain message metadata and aggregate counts, never
+message content.
 
 ## Moderator XP tools
 

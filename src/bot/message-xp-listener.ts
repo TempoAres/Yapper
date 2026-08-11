@@ -11,6 +11,7 @@ import {
   type MessageXpInput,
 } from "../services/xp/message-xp-tracker.js";
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
+import { isGoogleSearchCommand } from "./google-search-listener.js";
 
 function determineSource(message: Message<true>): MessageXpInput["source"] {
   if (message.channel.isThread()) {
@@ -43,6 +44,10 @@ export function registerMessageXpListener(
 ): void {
   client.on(Events.MessageCreate, async (message) => {
     if (!isSupportedUserMessage(message)) {
+      return;
+    }
+
+    if (isGoogleSearchCommand(message.content)) {
       return;
     }
 

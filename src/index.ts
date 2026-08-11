@@ -10,6 +10,7 @@ import { PostgresAdminXpService } from "./database/admin-xp-service.js";
 import { PostgresRecentXpService } from "./database/recent-xp-service.js";
 import { PostgresRoleRewardService } from "./database/role-reward-service.js";
 import { PostgresReactionService } from "./database/reaction-service.js";
+import { PostgresEmojiService } from "./database/emoji-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
     const recentXpService = new PostgresRecentXpService(pool);
     const roleRewardService = new PostgresRoleRewardService(pool);
     const reactionService = new PostgresReactionService(pool);
+    const emojiService = new PostgresEmojiService(pool);
     const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
       roleRewardService,
       memberXpService,
@@ -63,6 +65,7 @@ async function main(): Promise<void> {
         roleRewardService,
         roleRewardCoordinator,
         reactionService,
+        emojiService,
       },
       messageXpTracker,
       reactionTracker,
