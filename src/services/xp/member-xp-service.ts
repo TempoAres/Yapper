@@ -8,6 +8,12 @@ export interface MemberXpStats {
   rank: number | null;
 }
 
+export interface GuildMemberXpBalance {
+  userId: string;
+  allTimeXp: number;
+}
+
 export interface MemberXpService {
   getMemberStats(guildId: string, userId: string): Promise<MemberXpStats>;
+  listGuildMemberXp(guildId: string): Promise<readonly GuildMemberXpBalance[]>;
 }

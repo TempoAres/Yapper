@@ -107,7 +107,12 @@ docker compose --env-file .env.production -f compose.production.yaml logs --tail
 docker compose --env-file .env.production -f compose.production.yaml logs --tail 100 backup
 ```
 
-Test `/ping`, `/rank`, and `/leaderboard` in bluddington. Docker restarts Yapper
+Before starting a build that includes full-server role sync, enable **Server
+Members Intent** on Yapper's Discord Developer Portal **Bot** page. Passing the
+intent without enabling it causes Discord to reject the bot connection.
+
+Test `/ping`, `/rank`, `/lb all`, `/rewards`, and `/react received` in
+bluddington. Docker restarts Yapper
 after a crash or host reboot, while the bot handles termination signals and
 closes its Discord and PostgreSQL connections cleanly.
 

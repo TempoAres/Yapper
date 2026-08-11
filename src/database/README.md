@@ -17,6 +17,8 @@ The migrations create:
 - `xp_imports`
 - `xp_import_rows` (validated raw/adjusted rows plus exact rollback snapshots)
 - `xp_admin_audit`
+- `reaction_memberships` (deduplicated active Discord reactions)
+- `member_reaction_totals` (given/received leaderboard totals)
 
 `xp_admin_audit` keeps moderator corrections separate from activity awards.
 It records before/after Yapper XP and a Discord interaction ID for auditability
@@ -28,5 +30,6 @@ and unique constraints enforce one reward per level and one configured level
 per Discord role. Discord role assignment remains in the bot layer so database
 queries never need Discord permissions or role-cache objects.
 
-Reminder, countdown, and emoji tables will be added with their features rather
-than committing unused schemas prematurely.
+Reaction membership rows contain IDs and timestamps only; they never store
+message content. Removing a reaction or message transactionally adjusts the
+aggregated totals.

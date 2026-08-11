@@ -8,26 +8,33 @@ simple architecture intended to be approachable for a first-time bot developer.
 
 - Discord login and guild-scoped slash-command deployment.
 - `/ping`, which replies with `Yap.`
-- `/rank [user]` and `/level [user]` using one shared handler.
+- `/rank [user]` for a member's level, rank, and progress.
 - `/xp info [user]` with the level formula and progress details.
 - PostgreSQL migrations that run safely once and use an advisory lock.
 - Guild-specific member XP, ranks, timestamped XP events, and daily totals.
 - Duplicate-event protection through `UNIQUE (guild_id, discord_event_id)`.
-- Separate raw legacy XP, adjusted legacy XP, and new Yapper XP columns.
+- Imported MEE6 XP preserved internally without exposing import bookkeeping in
+  normal member commands.
 - A CLI tool for inserting test XP before real message XP is enabled.
 - Tests for the custom XP curve, level boundaries, and progress bars.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/leaderboard` with all-time, weekly, monthly, and yearly views.
-- Top 10 by default with requester-bound buttons and pages through Top 100.
+- `/lb all|weekly|monthly|yearly` with level progress by default and an exact-XP
+  view under `/lb xp ...`.
+- `/top weekly|monthly|yearly` for each member's best historical activity period.
+- `/react received|given` leaderboards with deduplicated reaction tracking.
+- Polished Discord embeds, progress bars, medals, and requester-bound buttons
+  with pages through the Top 100.
 - Europe/Berlin calendar boundaries and an honest launch-date label for the
   first partial weekly, monthly, and yearly periods.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
-- Non-negative Yapper XP enforcement and immutable imported legacy baselines.
+- Non-negative editable XP enforcement and protected imported balances.
 - Per-server `/xp roles add|remove|list|sync` configuration.
+- One-time `/xp roles sync-all` catch-up for every current member with stored XP.
+- Public `/rewards` list with role names and required levels, without role pings.
 - Stackable level-role catch-up after message XP, admin XP, or manual sync.
 - Clear diagnostics for missing roles, managed roles, missing Manage Roles
   permission, Discord assignment failures, and role hierarchy conflicts.
@@ -70,9 +77,13 @@ Create **Yapper** in the [Discord Developer Portal](https://discord.com/develope
 For Guild Install, use the `bot` and `applications.commands` scopes. Phase 2
 only needs **View Channels** and **Send Messages** permissions.
 
-For Phase 3, open the application's **Bot** page and enable **Message Content
-Intent** under Privileged Gateway Intents. Yapper needs it for low-effort and
-duplicate filtering; it does not persist the content.
+Open the application's **Bot** page and enable **Message Content Intent** plus
+**Server Members Intent** under Privileged Gateway Intents. Message Content is
+used for low-effort and duplicate filtering without persistence. Server Members
+allows the protected `/xp roles sync-all` command to fetch the complete server
+roster. Reaction tracking uses Discord's standard Guild Message Reactions
+intent and needs View Channels plus Read Message History in the channels it
+tracks.
 
 For Phase 6 role rewards, open **Server Settings -> Roles -> Yapper**, enable
 **Manage Roles**, and move Yapper's role above every XP reward role it should
@@ -172,32 +183,61 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/rank`, `/level`, `/xp info`, and `/leaderboard` in the private server.
+Then test `/ping`, `/rank`, `/xp info`, `/lb all`, and `/react received` in the
+private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
 
-Run `/leaderboard` with no options for the all-time Top 10. Optional choices:
+Level-progress leaderboards use these short commands:
 
 ```text
-/leaderboard scope:all page:1
-/leaderboard scope:weekly page:1
-/leaderboard scope:monthly page:1
-/leaderboard scope:yearly page:1
+/lb all
+/lb weekly
+/lb monthly
+/lb yearly
+```
+
+They rank by the selected period while showing each member's current level and
+progress instead of an XP number. For exact XP, use the separate XP view:
+
+```text
+/lb xp all
+/lb xp weekly
+/lb xp monthly
+/lb xp yearly
+```
+
+Historical records rank every member by their personal best period so far:
+
+```text
+/top weekly
+/top monthly
+/top yearly
 ```
 
 Each page contains ten members, and the First/Previous/Next/Last buttons cover
 the Top 100. Controls are bound to the person who opened the board so another
 member cannot unexpectedly change the displayed page.
 
-All-time XP includes adjusted legacy XP plus Yapper XP. Weekly, monthly, and
-yearly boards use timestamped Yapper daily totals only. Weeks begin Monday at
-00:00, months on the first day at 00:00, and years on January 1 at 00:00 in the
+Total XP includes the existing MEE6 import plus XP earned through Yapper.
+Weekly, monthly, and yearly boards use timestamped Yapper daily totals only.
+Weeks begin Monday at 00:00, months on the first day at 00:00, and years on
+January 1 at 00:00 in the
 server's configured timezone. During Yapper's first partial period, the embed
 clearly states that tracking begins at bot launch because historical period
 activity cannot be reconstructed from MEE6 all-time XP.
+
+## Reaction leaderboards
+
+`/react received` ranks members by reactions currently held on their messages;
+`/react given` ranks members by reactions they have placed. Yapper starts these
+counts when this feature is deployed. Bot reactions and reactions to bot
+messages are ignored, and self-reactions do not count. Duplicate gateway events
+cannot double-count a reaction. Removing a reaction, emoji, or message also
+removes it from the totals.
 
 ## Moderator XP tools
 
@@ -216,8 +256,8 @@ Administrator:
 /xp admin set user:@member amount:5000 reason:Approved baseline correction
 ```
 
-These commands change only the member's Yapper XP. Raw and adjusted legacy XP
-remain untouched. Applied changes store an audit record containing the target,
+These commands change only the member's editable XP balance; imported XP stays
+protected internally. Applied changes store an audit record containing the target,
 moderator, operation, requested amount, before/after balances, interaction ID,
 channel, timestamp, and optional reason. XP cannot be removed below zero.
 
@@ -233,7 +273,18 @@ Members with Manage Roles or Administrator can use these private commands:
 /xp roles remove level:1
 /xp roles list
 /xp roles sync user:@member
+/xp roles sync-all
 ```
+
+`/xp roles sync` synchronizes one member and defaults to the person running it.
+`/xp roles sync-all` fetches the complete server roster, then grants every
+missing earned role. It may take several minutes on a large server and reports
+progress privately to the moderator who started it. Only one full sync can run
+per server at a time.
+
+Any member can run `/rewards` to see the configured level requirements. The
+display uses plain role names and disables mentions, so listing rewards never
+pings a role.
 
 Each level can grant one role, and each role can belong to one configured
 level. Rewards stack: a level 10 member receives every configured reward at
@@ -344,6 +395,7 @@ migrations/                 Ordered SQL migrations
 scripts/
   deploy-commands.ts        Register Discord slash commands
   migrate.ts                Apply pending database migrations
+  verify-database.ts        Verify leaderboard and reaction SQL safely
   add-test-xp.ts            Insert a safe test XP event
   import-xp.ts              Validate/preview/apply/rollback legacy XP
 src/
@@ -351,7 +403,7 @@ src/
   commands/                 Slash-command definitions and handlers
   config/                   Environment validation
   database/                 Pool, migrations, and PostgreSQL services
-  services/                 XP calculations and timezone-aware leaderboard logic
+  services/                 XP, reaction, role, and leaderboard logic
 tests/                      Fast unit tests
 ```
 
@@ -363,24 +415,25 @@ XP needed for the next level is:
 round(500 + 70 * level + 0.22 * level * level)
 ```
 
-All-time XP is calculated as:
+Total XP combines:
 
 ```text
-adjusted legacy XP + new Yapper XP
+existing imported XP + XP earned through Yapper
 ```
 
-Imported raw MEE6 XP remains separate for auditing. Arcane data will only be
-used for comparison/calibration because adding overlapping Arcane and MEE6 XP
+The import audit columns remain internal so an authorized rollback stays safe.
+Arcane data is comparison-only because adding overlapping Arcane and MEE6 XP
 would double-count activity.
 
 ## Roadmap
 
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
-2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, `/level`, `/xp info`.
+2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, and `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
-4. **Complete:** paginated all/weekly/monthly/yearly leaderboards in Europe/Berlin time.
+4. **Complete:** paginated level, XP, and historical-record leaderboards in Europe/Berlin time.
 5. **Complete:** `/recent xp` and controlled moderator XP tools.
 6. **Complete:** stackable XP role rewards with role-hierarchy checks.
 7. **Complete:** auditable MEE6 preview/apply/rollback imports.
 8. **Complete:** production Docker deployment, backups, restarts, and monitoring.
-9. Reminders, countdowns, Google search, and emoji/reaction statistics.
+9. **Complete:** reactions-given and reactions-received statistics.
+10. Future candidates: reminders, countdowns, and optional utility commands.

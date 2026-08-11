@@ -3,26 +3,34 @@ import {
   Events,
   GatewayIntentBits,
   MessageFlags,
+  Partials,
 } from "discord.js";
 
 import { commandsByName } from "../commands/index.js";
 import type { CommandContext } from "../commands/command.js";
 import { handleLeaderboardButton } from "../commands/leaderboard.js";
+import { handleReactionLeaderboardButton } from "../commands/reactions.js";
 import type { BotConfig } from "../config/environment.js";
 import type { MessageXpTracker } from "../services/xp/message-xp-tracker.js";
+import type { ReactionTracker } from "../services/reactions/reaction-tracker.js";
 import { registerMessageXpListener } from "./message-xp-listener.js";
+import { registerReactionListener } from "./reaction-listener.js";
 
 export async function startBot(
   config: BotConfig,
   context: CommandContext,
   messageXpTracker: MessageXpTracker,
+  reactionTracker: ReactionTracker,
 ): Promise<Client> {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMessageReactions,
       GatewayIntentBits.MessageContent,
     ],
+    partials: [Partials.Channel, Partials.Message, Partials.Reaction],
   });
 
   registerMessageXpListener(
@@ -30,6 +38,7 @@ export async function startBot(
     messageXpTracker,
     context.roleRewardCoordinator,
   );
+  registerReactionListener(client, reactionTracker);
 
   client.once(Events.ClientReady, (readyClient) => {
     console.log(`Yapper is online as ${readyClient.user.tag}.`);
@@ -38,7 +47,11 @@ export async function startBot(
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isButton()) {
-        await handleLeaderboardButton(interaction, context);
+        if (await handleLeaderboardButton(interaction, context)) {
+          return;
+        }
+
+        await handleReactionLeaderboardButton(interaction, context);
         return;
       }
 

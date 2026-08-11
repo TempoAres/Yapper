@@ -42,18 +42,8 @@ function createAdminViewEmbed(
     })
     .setTitle("Moderator XP view")
     .addFields(
-      { name: "Yapper XP", value: formatXp(stats.newBotXp), inline: true },
-      {
-        name: "Adjusted legacy XP",
-        value: formatXp(stats.legacyXpAdjusted),
-        inline: true,
-      },
-      {
-        name: "Raw legacy XP",
-        value: formatXp(stats.legacyXpRaw),
-        inline: true,
-      },
-      { name: "All-time XP", value: formatXp(stats.allTimeXp), inline: true },
+      { name: "Editable XP", value: formatXp(stats.newBotXp), inline: true },
+      { name: "Total XP", value: formatXp(stats.allTimeXp), inline: true },
       {
         name: "Server rank",
         value: stats.rank === null ? "Unranked" : `#${stats.rank}`,
@@ -162,13 +152,13 @@ export async function executeAdminXpCommand(
         ? "XP change already applied"
         : "Yapper XP updated",
     )
-    .setDescription(`${user}'s imported legacy baseline was not changed.`)
+    .setDescription(`${user}'s XP and level have been recalculated.`)
     .addFields(
       { name: "Operation", value: subcommand, inline: true },
       { name: "Change", value: `${formatSignedXp(result.delta)} XP`, inline: true },
       { name: "Before", value: formatXp(result.previousXp), inline: true },
       { name: "After", value: formatXp(result.newXp), inline: true },
-      { name: "All-time XP", value: formatXp(stats.allTimeXp), inline: true },
+      { name: "Total XP", value: formatXp(stats.allTimeXp), inline: true },
       ...(reason ? [{ name: "Reason", value: reason.slice(0, 200) }] : []),
       ...(roleSyncDescription
         ? [{ name: "Stacked role sync", value: roleSyncDescription }]
