@@ -1,4 +1,4 @@
-import type { GuildMember } from "discord.js";
+import type { Guild, GuildMember } from "discord.js";
 
 import type { XpRoleReward } from "./role-reward-service.js";
 
@@ -21,6 +21,24 @@ export interface RoleSyncResult {
   earnedRoleIds: readonly string[];
   existingRoleIds: readonly string[];
   addedRoleIds: readonly string[];
+  issues: readonly RoleSyncIssue[];
+}
+
+export interface GuildRoleSyncProgress {
+  totalXpMemberCount: number;
+  processedXpMemberCount: number;
+  updatedMemberCount: number;
+  grantedRoleCount: number;
+  failedMemberCount: number;
+}
+
+export interface GuildRoleSyncResult extends GuildRoleSyncProgress {
+  status: "completed" | "blocked";
+  configuredRoleCount: number;
+  alreadyCurrentMemberCount: number;
+  belowFirstRewardMemberCount: number;
+  departedMemberCount: number;
+  botMemberCount: number;
   issues: readonly RoleSyncIssue[];
 }
 
@@ -54,4 +72,8 @@ export function planStackedRoleSync(input: {
 
 export interface RoleRewardCoordinator {
   syncMember(member: GuildMember): Promise<RoleSyncResult>;
+  syncGuild(
+    guild: Guild,
+    onProgress?: (progress: GuildRoleSyncProgress) => Promise<void> | void,
+  ): Promise<GuildRoleSyncResult>;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { GuildMember } from "discord.js";
+import type { Guild, GuildMember } from "discord.js";
 
 import { DiscordRoleRewardCoordinator } from "../src/bot/role-reward-coordinator.js";
 import type {
@@ -51,6 +51,9 @@ function createMemberXpService(level: number): MemberXpService {
         allTimeXp,
         rank: 1,
       };
+    },
+    async listGuildMemberXp() {
+      return [{ userId: "user-1", allTimeXp }];
     },
   };
 }
@@ -202,5 +205,89 @@ describe("DiscordRoleRewardCoordinator", () => {
     assert.deepEqual(result.addedRoleIds, []);
     assert.equal(result.issues[0]?.code, "assignment_failed");
     assert.match(result.issues[0]?.message ?? "", /simulated Discord failure/);
+  });
+
+  it("bulk-syncs every current human member with stored XP", async () => {
+    const role = {
+      id: "role-1",
+      name: "Level 1",
+      managed: false,
+      position: 10,
+    };
+    const roleCache = new Map([[role.id, role]]);
+    const additions = new Map<string, string[][]>();
+    const botMember = {
+      permissions: { has: () => true },
+      roles: { highest: { position: 100 } },
+    };
+    const guild = {
+      id: "guild-1",
+      roles: {
+        cache: roleCache,
+        fetch: async () => roleCache,
+      },
+      members: {
+        me: botMember,
+        fetchMe: async () => botMember,
+      },
+    } as unknown as Guild;
+    const createBulkMember = (
+      id: string,
+      currentRoleIds: readonly string[] = [],
+      bot = false,
+    ): GuildMember => {
+      additions.set(id, []);
+      return {
+        id,
+        user: { bot },
+        guild,
+        roles: {
+          cache: new Map(currentRoleIds.map((roleId) => [roleId, {}])),
+          add: async (roleIds: readonly string[]) => {
+            additions.get(id)?.push([...roleIds]);
+          },
+        },
+      } as unknown as GuildMember;
+    };
+    const members = new Map([
+      ["user-earned", createBulkMember("user-earned")],
+      ["user-low", createBulkMember("user-low")],
+      ["user-bot", createBulkMember("user-bot", [], true)],
+    ]);
+    (guild.members.fetch as unknown as () => Promise<typeof members>) = async () =>
+      members;
+    const memberXp: MemberXpService = {
+      async getMemberStats() {
+        throw new Error("Single-member lookup is not used by bulk sync.");
+      },
+      async listGuildMemberXp() {
+        return [
+          { userId: "user-earned", allTimeXp: totalXpForLevel(1) },
+          { userId: "user-low", allTimeXp: 1 },
+          { userId: "user-bot", allTimeXp: totalXpForLevel(1) },
+          { userId: "departed", allTimeXp: totalXpForLevel(1) },
+        ];
+      },
+    };
+    const coordinator = new DiscordRoleRewardCoordinator(
+      createRewardService([reward("role-1", 1)]),
+      memberXp,
+    );
+    const progress: number[] = [];
+
+    const result = await coordinator.syncGuild(guild, (update) => {
+      progress.push(update.processedXpMemberCount);
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.totalXpMemberCount, 4);
+    assert.equal(result.processedXpMemberCount, 4);
+    assert.equal(result.updatedMemberCount, 1);
+    assert.equal(result.grantedRoleCount, 1);
+    assert.equal(result.belowFirstRewardMemberCount, 1);
+    assert.equal(result.botMemberCount, 1);
+    assert.equal(result.departedMemberCount, 1);
+    assert.deepEqual(additions.get("user-earned"), [["role-1"]]);
+    assert.deepEqual(progress, [4]);
   });
 });

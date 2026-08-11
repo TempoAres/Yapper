@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import type {
   MemberXpService,
   MemberXpStats,
+  GuildMemberXpBalance,
 } from "../services/xp/member-xp-service.js";
 
 interface MemberXpRow {
@@ -13,6 +14,11 @@ interface MemberXpRow {
   new_bot_xp: string;
   all_time_xp: string;
   rank: string;
+}
+
+interface GuildMemberXpRow {
+  user_id: string;
+  all_time_xp: string;
 }
 
 function parseDatabaseInteger(value: string, label: string): number {
@@ -82,5 +88,27 @@ export class PostgresMemberXpService implements MemberXpService {
       allTimeXp: parseDatabaseInteger(row.all_time_xp, "all-time XP"),
       rank: parseDatabaseInteger(row.rank, "rank"),
     };
+  }
+
+  public async listGuildMemberXp(
+    guildId: string,
+  ): Promise<readonly GuildMemberXpBalance[]> {
+    const result = await this.pool.query<GuildMemberXpRow>(
+      `
+        SELECT
+          user_id,
+          (legacy_xp_adjusted + new_bot_xp)::text AS all_time_xp
+        FROM guild_members
+        WHERE guild_id = $1
+          AND legacy_xp_adjusted + new_bot_xp > 0
+        ORDER BY user_id
+      `,
+      [guildId],
+    );
+
+    return result.rows.map((row) => ({
+      userId: row.user_id,
+      allTimeXp: parseDatabaseInteger(row.all_time_xp, "all-time XP"),
+    }));
   }
 }

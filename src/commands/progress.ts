@@ -13,7 +13,7 @@ function formatXp(xp: number): string {
   return new Intl.NumberFormat("en-US").format(xp);
 }
 
-function createProgressEmbed(
+export function createProgressEmbed(
   user: User,
   stats: Awaited<ReturnType<CommandContext["memberXpService"]["getMemberStats"]>>,
   includeCurveExplanation: boolean,
@@ -36,36 +36,20 @@ function createProgressEmbed(
         inline: true,
       },
       {
-        name: "All-time XP",
+        name: "Total XP",
         value: formatXp(stats.allTimeXp),
         inline: true,
       },
       {
         name: `Progress to level ${progress.level + 1}`,
-        value: `${progressBar}\n${formatXp(progress.xpInCurrentLevel)} / ${formatXp(progress.xpForNextLevel)} XP`,
+        value: `${progressBar}\n${formatXp(progress.xpInCurrentLevel)} / ${formatXp(progress.xpForNextLevel)} XP \u2022 ${formatXp(progress.xpNeededForNextLevel)} XP to go`,
       },
-      {
-        name: "XP still needed",
-        value: `${formatXp(progress.xpNeededForNextLevel)} XP`,
-        inline: true,
-      },
-      {
-        name: "Yapper XP",
-        value: formatXp(stats.newBotXp),
-        inline: true,
-      },
-      {
-        name: "Legacy baseline",
-        value: formatXp(stats.legacyXpAdjusted),
-        inline: true,
-      },
-    )
-    .setFooter({ text: "All-time XP = adjusted legacy XP + Yapper XP" });
+    );
 
   if (includeCurveExplanation) {
     embed.addFields({
       name: "Level curve",
-      value: "XP to next level = round(500 + 70 x level + 0.22 x level²)",
+      value: "XP to next level = round(500 + 70 × level + 0.22 × level²)",
     });
   }
 

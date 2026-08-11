@@ -9,6 +9,7 @@ import type { AdminXpService } from "../services/xp/admin-xp-service.js";
 import type { RecentXpService } from "../services/xp/recent-xp-service.js";
 import type { RoleRewardService } from "../services/roles/role-reward-service.js";
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
+import type { ReactionService } from "../services/reactions/reaction-service.js";
 
 export interface CommandContext {
   memberXpService: MemberXpService;
@@ -17,6 +18,7 @@ export interface CommandContext {
   recentXpService: RecentXpService;
   roleRewardService: RoleRewardService;
   roleRewardCoordinator: RoleRewardCoordinator;
+  reactionService: ReactionService;
 }
 
 export interface SlashCommandData {

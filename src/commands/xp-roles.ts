@@ -7,9 +7,21 @@ import {
 } from "discord.js";
 
 import type { CommandContext } from "./command.js";
-import type { RoleSyncResult } from "../services/roles/role-sync.js";
+import { buildRewardsResponse } from "./rewards.js";
+import type {
+  GuildRoleSyncProgress,
+  GuildRoleSyncResult,
+  RoleSyncResult,
+} from "../services/roles/role-sync.js";
 
-export type XpRolesSubcommand = "add" | "remove" | "list" | "sync";
+export type XpRolesSubcommand =
+  | "add"
+  | "remove"
+  | "list"
+  | "sync"
+  | "sync-all";
+
+const activeGuildSyncs = new Set<string>();
 
 export function buildRoleSubcommandGroup(
   group: SlashCommandSubcommandGroupBuilder,
@@ -63,6 +75,11 @@ export function buildRoleSubcommandGroup(
             .setName("user")
             .setDescription("The member to synchronize; defaults to you."),
         ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("sync-all")
+        .setDescription("Grant missing earned roles to every current member."),
     );
 }
 
@@ -72,6 +89,93 @@ function canManageRoles(interaction: ChatInputCommandInteraction): boolean {
     permissions?.has(PermissionFlagsBits.Administrator) ||
       permissions?.has(PermissionFlagsBits.ManageRoles),
   );
+}
+
+function buildBulkProgressDescription(progress: GuildRoleSyncProgress): string {
+  return [
+    `Processed: **${progress.processedXpMemberCount}/${progress.totalXpMemberCount}**`,
+    `Members updated: **${progress.updatedMemberCount}**`,
+    `Roles granted: **${progress.grantedRoleCount}**`,
+    `Failed members: **${progress.failedMemberCount}**`,
+  ].join("\n");
+}
+
+function buildBulkSyncEmbed(result: GuildRoleSyncResult): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setColor(
+      result.status === "blocked" || result.failedMemberCount > 0
+        ? 0xfee75c
+        : 0x57f287,
+    )
+    .setTitle(
+      result.status === "blocked"
+        ? "Server role sync blocked"
+        : "Server role sync complete",
+    );
+
+  if (result.configuredRoleCount === 0) {
+    return embed.setDescription("No XP role rewards are configured yet.");
+  }
+
+  if (result.status === "blocked") {
+    return embed.setDescription(
+      result.issues.map((issue) => `- ${issue.message}`).join("\n"),
+    );
+  }
+
+  embed.addFields(
+    {
+      name: "Members checked",
+      value: `${result.processedXpMemberCount}/${result.totalXpMemberCount}`,
+      inline: true,
+    },
+    {
+      name: "Members updated",
+      value: String(result.updatedMemberCount),
+      inline: true,
+    },
+    {
+      name: "Roles granted",
+      value: String(result.grantedRoleCount),
+      inline: true,
+    },
+    {
+      name: "Already current",
+      value: String(result.alreadyCurrentMemberCount),
+      inline: true,
+    },
+    {
+      name: "Below first reward",
+      value: String(result.belowFirstRewardMemberCount),
+      inline: true,
+    },
+    {
+      name: "Not in server / bots",
+      value: `${result.departedMemberCount} / ${result.botMemberCount}`,
+      inline: true,
+    },
+    {
+      name: "Failed members",
+      value: String(result.failedMemberCount),
+      inline: true,
+    },
+  );
+
+  if (result.issues.length > 0) {
+    const uniqueIssues = [...new Set(result.issues.map((issue) => issue.message))];
+    embed.addFields({
+      name: "First issues",
+      value: uniqueIssues
+        .slice(0, 5)
+        .map((issue) => `- ${issue}`)
+        .join("\n")
+        .slice(0, 1_024),
+    });
+  }
+
+  return embed.setFooter({
+    text: "Only missing earned roles were added; no roles were removed",
+  });
 }
 
 export function describeRoleSync(result: RoleSyncResult): string {
@@ -117,7 +221,8 @@ export async function executeXpRolesCommand(
 
   if (!canManageRoles(interaction)) {
     await interaction.reply({
-      content: "You need **Manage Roles** permission to configure XP roles.",
+      content:
+        "You need **Manage Roles** permission to configure or synchronize XP roles.",
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -126,30 +231,9 @@ export async function executeXpRolesCommand(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   if (subcommand === "list") {
-    const rewards = await context.roleRewardService.listRewards(guild.id);
-    const lines = await Promise.all(
-      rewards.map(async (reward) => {
-        const role = await guild.roles.fetch(reward.roleId).catch(() => null);
-        return role
-          ? `Level **${reward.requiredLevel}** -> ${role}`
-          : `Level **${reward.requiredLevel}** -> deleted role \`${reward.roleId}\``;
-      }),
+    await interaction.editReply(
+      await buildRewardsResponse(guild, context.roleRewardService),
     );
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("Stacked Yapper XP roles")
-      .setDescription(
-        lines.length > 0
-          ? lines.join("\n")
-          : "No XP role rewards are configured yet.",
-      )
-      .setFooter({
-        text: "Members keep every earlier reward when earning higher levels",
-      });
-    await interaction.editReply({
-      embeds: [embed],
-      allowedMentions: { parse: [] },
-    });
     return;
   }
 
@@ -218,8 +302,57 @@ export async function executeXpRolesCommand(
     }
 
     await interaction.editReply(
-      `Configured ${role} for level **${level}**. It stacks with every other earned XP role. Use \`/xp roles sync\` for immediate catch-up.`,
+      `Configured ${role} for level **${level}**. It stacks with every other earned XP role. Use \`/xp roles sync-all\` once for full-server catch-up.`,
     );
+    return;
+  }
+
+  if (subcommand === "sync-all") {
+    if (activeGuildSyncs.has(guild.id)) {
+      await interaction.editReply(
+        "A full-server role sync is already running. Please let it finish.",
+      );
+      return;
+    }
+
+    activeGuildSyncs.add(guild.id);
+    let lastProgressUpdate = 0;
+
+    try {
+      await interaction.editReply(
+        "Starting full-server role sync. Fetching the member list...",
+      );
+      const result = await context.roleRewardCoordinator.syncGuild(
+        guild,
+        async (progress) => {
+          const now = Date.now();
+
+          if (
+            now - lastProgressUpdate < 5_000 &&
+            progress.processedXpMemberCount < progress.totalXpMemberCount
+          ) {
+            return;
+          }
+
+          lastProgressUpdate = now;
+          await interaction
+            .editReply({ content: buildBulkProgressDescription(progress) })
+            .catch(() => undefined);
+        },
+      );
+      await interaction.editReply({
+        content: null,
+        embeds: [buildBulkSyncEmbed(result)],
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await interaction.editReply(
+        `The complete member list could not be processed. Enable **Server Members Intent** on Yapper's Discord Developer Portal Bot page, restart Yapper, and try again.\n\nDetails: ${detail.slice(0, 500)}`,
+      );
+    } finally {
+      activeGuildSyncs.delete(guild.id);
+    }
     return;
   }
 

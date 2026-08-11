@@ -5,6 +5,7 @@ import {
   LEADERBOARD_PAGE_SIZE,
   type LeaderboardEntry,
   type LeaderboardPage,
+  type LeaderboardRecordScope,
   type LeaderboardScope,
   type LeaderboardService,
 } from "../services/leaderboards/leaderboard-service.js";
@@ -22,6 +23,14 @@ interface CountRow {
 interface EntryRow {
   user_id: string;
   xp: string;
+  all_time_xp: string;
+  record_start: string | null;
+  record_end: string | null;
+}
+
+interface TotalsQuery {
+  sql: string;
+  parameters: unknown[];
 }
 
 function parseDatabaseInteger(value: string, label: string): number {
@@ -34,18 +43,21 @@ function parseDatabaseInteger(value: string, label: string): number {
   return parsed;
 }
 
-function buildTotalsQuery(
+function buildCurrentTotalsQuery(
   guildId: string,
   scope: LeaderboardScope,
   periodStart: string | null,
   periodEnd: string | null,
-): { sql: string; parameters: unknown[] } {
+): TotalsQuery {
   if (scope === "all") {
     return {
       sql: `
         SELECT
           user_id,
-          (legacy_xp_adjusted + new_bot_xp)::bigint AS xp
+          (legacy_xp_adjusted + new_bot_xp)::bigint AS xp,
+          (legacy_xp_adjusted + new_bot_xp)::bigint AS all_time_xp,
+          NULL::date AS record_start,
+          NULL::date AS record_end
         FROM guild_members
         WHERE guild_id = $1
           AND legacy_xp_adjusted + new_bot_xp > 0
@@ -60,14 +72,94 @@ function buildTotalsQuery(
 
   return {
     sql: `
-      SELECT user_id, SUM(amount)::bigint AS xp
-      FROM daily_xp_totals
-      WHERE guild_id = $1
-        AND xp_date BETWEEN $2::date AND $3::date
-      GROUP BY user_id
-      HAVING SUM(amount) > 0
+      WITH period_totals AS (
+        SELECT user_id, SUM(amount)::bigint AS xp
+        FROM daily_xp_totals
+        WHERE guild_id = $1
+          AND xp_date BETWEEN $2::date AND $3::date
+        GROUP BY user_id
+        HAVING SUM(amount) > 0
+      )
+      SELECT
+        period_totals.user_id,
+        period_totals.xp,
+        (guild_members.legacy_xp_adjusted + guild_members.new_bot_xp)::bigint AS all_time_xp,
+        NULL::date AS record_start,
+        NULL::date AS record_end
+      FROM period_totals
+      INNER JOIN guild_members
+        ON guild_members.guild_id = $1
+        AND guild_members.user_id = period_totals.user_id
     `,
     parameters: [guildId, periodStart, periodEnd],
+  };
+}
+
+function periodStartExpression(scope: LeaderboardRecordScope): string {
+  switch (scope) {
+    case "weekly":
+      return "(xp_date - (EXTRACT(ISODOW FROM xp_date)::integer - 1))::date";
+    case "monthly":
+      return "date_trunc('month', xp_date::timestamp)::date";
+    case "yearly":
+      return "date_trunc('year', xp_date::timestamp)::date";
+  }
+}
+
+function periodEndExpression(scope: LeaderboardRecordScope): string {
+  switch (scope) {
+    case "weekly":
+      return "(best_periods.record_start + 6)::date";
+    case "monthly":
+      return "(best_periods.record_start + INTERVAL '1 month - 1 day')::date";
+    case "yearly":
+      return "(best_periods.record_start + INTERVAL '1 year - 1 day')::date";
+  }
+}
+
+function buildRecordTotalsQuery(
+  guildId: string,
+  scope: LeaderboardRecordScope,
+): TotalsQuery {
+  const startExpression = periodStartExpression(scope);
+  const endExpression = periodEndExpression(scope);
+
+  return {
+    sql: `
+      WITH period_totals AS (
+        SELECT
+          user_id,
+          ${startExpression} AS record_start,
+          SUM(amount)::bigint AS xp
+        FROM daily_xp_totals
+        WHERE guild_id = $1
+        GROUP BY user_id, ${startExpression}
+        HAVING SUM(amount) > 0
+      ),
+      best_periods AS (
+        SELECT
+          user_id,
+          record_start,
+          xp,
+          ROW_NUMBER() OVER (
+            PARTITION BY user_id
+            ORDER BY xp DESC, record_start ASC
+          ) AS record_order
+        FROM period_totals
+      )
+      SELECT
+        best_periods.user_id,
+        best_periods.xp,
+        (guild_members.legacy_xp_adjusted + guild_members.new_bot_xp)::bigint AS all_time_xp,
+        best_periods.record_start,
+        ${endExpression} AS record_end
+      FROM best_periods
+      INNER JOIN guild_members
+        ON guild_members.guild_id = $1
+        AND guild_members.user_id = best_periods.user_id
+      WHERE best_periods.record_order = 1
+    `,
+    parameters: [guildId],
   };
 }
 
@@ -77,58 +169,55 @@ export class PostgresLeaderboardService implements LeaderboardService {
     private readonly defaultTimezone: string,
   ) {}
 
-  public async getPage(input: {
-    guildId: string;
-    scope: LeaderboardScope;
-    page: number;
-    now: Date;
-  }): Promise<LeaderboardPage> {
-    if (!Number.isSafeInteger(input.page) || input.page < 1) {
-      throw new RangeError("Leaderboard page must be a positive whole number.");
-    }
-
+  private async loadGuildSettings(guildId: string): Promise<GuildSettingsRow> {
     await this.pool.query(
       `
         INSERT INTO guild_settings (guild_id, timezone)
         VALUES ($1, $2)
         ON CONFLICT (guild_id) DO NOTHING
       `,
-      [input.guildId, this.defaultTimezone],
+      [guildId, this.defaultTimezone],
     );
 
-    const settingsResult = await this.pool.query<GuildSettingsRow>(
+    const result = await this.pool.query<GuildSettingsRow>(
       `
         SELECT timezone, launched_at
         FROM guild_settings
         WHERE guild_id = $1
       `,
-      [input.guildId],
+      [guildId],
     );
-    const settings = settingsResult.rows[0];
+    const settings = result.rows[0];
 
     if (!settings) {
-      throw new Error(`Guild settings are missing for ${input.guildId}.`);
+      throw new Error(`Guild settings are missing for ${guildId}.`);
     }
 
-    const period = calculateLeaderboardPeriod({
-      scope: input.scope,
-      now: input.now,
-      timezone: settings.timezone,
-      launchedAt: settings.launched_at,
-    });
-    const totals = buildTotalsQuery(
-      input.guildId,
-      input.scope,
-      period.startDate,
-      period.endDate,
-    );
+    return settings;
+  }
+
+  private async queryPage(input: {
+    kind: LeaderboardPage["kind"];
+    scope: LeaderboardScope;
+    page: number;
+    totals: TotalsQuery;
+    timezone: string;
+    periodStart: string | null;
+    periodEnd: string | null;
+    launchLimited: boolean;
+    now: Date;
+  }): Promise<LeaderboardPage> {
+    if (!Number.isSafeInteger(input.page) || input.page < 1) {
+      throw new RangeError("Leaderboard page must be a positive whole number.");
+    }
+
     const countResult = await this.pool.query<CountRow>(
       `
-        WITH leaderboard_totals AS (${totals.sql})
+        WITH leaderboard_totals AS (${input.totals.sql})
         SELECT COUNT(*)::text AS count
         FROM leaderboard_totals
       `,
-      totals.parameters,
+      input.totals.parameters,
     );
     const participantCount = parseDatabaseInteger(
       countResult.rows[0]?.count ?? "0",
@@ -144,26 +233,35 @@ export class PostgresLeaderboardService implements LeaderboardService {
     );
     const page = Math.min(input.page, totalPages);
     const offset = (page - 1) * LEADERBOARD_PAGE_SIZE;
-    const limitParameter = totals.parameters.length + 1;
-    const offsetParameter = totals.parameters.length + 2;
+    const limitParameter = input.totals.parameters.length + 1;
+    const offsetParameter = input.totals.parameters.length + 2;
     const entriesResult = await this.pool.query<EntryRow>(
       `
-        WITH leaderboard_totals AS (${totals.sql})
-        SELECT user_id, xp
+        WITH leaderboard_totals AS (${input.totals.sql})
+        SELECT
+          user_id,
+          xp,
+          all_time_xp,
+          record_start::text AS record_start,
+          record_end::text AS record_end
         FROM leaderboard_totals
         ORDER BY xp DESC, user_id ASC
         LIMIT $${limitParameter}
         OFFSET $${offsetParameter}
       `,
-      [...totals.parameters, LEADERBOARD_PAGE_SIZE, offset],
+      [...input.totals.parameters, LEADERBOARD_PAGE_SIZE, offset],
     );
     const entries: LeaderboardEntry[] = entriesResult.rows.map((row, index) => ({
       rank: offset + index + 1,
       userId: row.user_id,
       xp: parseDatabaseInteger(row.xp, "leaderboard XP"),
+      allTimeXp: parseDatabaseInteger(row.all_time_xp, "all-time XP"),
+      recordStart: row.record_start,
+      recordEnd: row.record_end,
     }));
 
     return {
+      kind: input.kind,
       scope: input.scope,
       page,
       pageSize: LEADERBOARD_PAGE_SIZE,
@@ -171,11 +269,65 @@ export class PostgresLeaderboardService implements LeaderboardService {
       participantCount,
       visibleEntryCount,
       entries,
+      timezone: input.timezone,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      launchLimited: input.launchLimited,
+      generatedAt: input.now,
+    };
+  }
+
+  public async getPage(input: {
+    guildId: string;
+    scope: LeaderboardScope;
+    page: number;
+    now: Date;
+  }): Promise<LeaderboardPage> {
+    const settings = await this.loadGuildSettings(input.guildId);
+    const period = calculateLeaderboardPeriod({
+      scope: input.scope,
+      now: input.now,
+      timezone: settings.timezone,
+      launchedAt: settings.launched_at,
+    });
+    const totals = buildCurrentTotalsQuery(
+      input.guildId,
+      input.scope,
+      period.startDate,
+      period.endDate,
+    );
+
+    return this.queryPage({
+      kind: "current",
+      scope: input.scope,
+      page: input.page,
+      totals,
       timezone: settings.timezone,
       periodStart: period.startDate,
       periodEnd: period.endDate,
       launchLimited: period.launchLimited,
-      generatedAt: input.now,
-    };
+      now: input.now,
+    });
+  }
+
+  public async getRecordPage(input: {
+    guildId: string;
+    scope: LeaderboardRecordScope;
+    page: number;
+    now: Date;
+  }): Promise<LeaderboardPage> {
+    const settings = await this.loadGuildSettings(input.guildId);
+
+    return this.queryPage({
+      kind: "record",
+      scope: input.scope,
+      page: input.page,
+      totals: buildRecordTotalsQuery(input.guildId, input.scope),
+      timezone: settings.timezone,
+      periodStart: null,
+      periodEnd: null,
+      launchLimited: false,
+      now: input.now,
+    });
   }
 }

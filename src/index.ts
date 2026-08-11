@@ -9,6 +9,7 @@ import { PostgresLeaderboardService } from "./database/leaderboard-service.js";
 import { PostgresAdminXpService } from "./database/admin-xp-service.js";
 import { PostgresRecentXpService } from "./database/recent-xp-service.js";
 import { PostgresRoleRewardService } from "./database/role-reward-service.js";
+import { PostgresReactionService } from "./database/reaction-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
@@ -18,6 +19,7 @@ import {
   loadMessageXpConfig,
 } from "./config/environment.js";
 import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
+import { ReactionTracker } from "./services/reactions/reaction-tracker.js";
 import {
   startHealthServer,
   stopHealthServer,
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
     const adminXpService = new PostgresAdminXpService(pool);
     const recentXpService = new PostgresRecentXpService(pool);
     const roleRewardService = new PostgresRoleRewardService(pool);
+    const reactionService = new PostgresReactionService(pool);
     const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
       roleRewardService,
       memberXpService,
@@ -49,6 +52,7 @@ async function main(): Promise<void> {
       xpService,
       loadMessageXpConfig(),
     );
+    const reactionTracker = new ReactionTracker(reactionService);
     client = await startBot(
       botConfig,
       {
@@ -58,8 +62,10 @@ async function main(): Promise<void> {
         recentXpService,
         roleRewardService,
         roleRewardCoordinator,
+        reactionService,
       },
       messageXpTracker,
+      reactionTracker,
     );
     const healthPort = loadHealthConfig().port;
 
