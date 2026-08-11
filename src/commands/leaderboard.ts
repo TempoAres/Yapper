@@ -95,6 +95,17 @@ export function createLeaderboardImageRows(
 
     const progress = calculateLevelProgress(entry.allTimeXp);
 
+    if (page.scope !== "all") {
+      const startingXp = Math.max(0, entry.allTimeXp - entry.xp);
+      const startingLevel = calculateLevelProgress(startingXp).level;
+
+      return {
+        rank: entry.rank,
+        userId: entry.userId,
+        detail: `LVL: +${Math.max(0, progress.level - startingLevel)} XP: +${formatXp(entry.xp)}`,
+      };
+    }
+
     return {
       rank: entry.rank,
       userId: entry.userId,
@@ -296,7 +307,7 @@ export async function handleLeaderboardButton(
 
   if (interaction.user.id !== request.requesterId) {
     await interaction.reply({
-      content: "Run `/lb` yourself to open controls you can use.",
+      content: "Run `/lb all` yourself to open controls you can use.",
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -332,6 +343,29 @@ export async function handleLeaderboardButton(
   return true;
 }
 
+function configureLeaderboardSubcommand(
+  subcommand: SlashCommandSubcommandBuilder,
+  scope: LeaderboardScope,
+): SlashCommandSubcommandBuilder {
+  const descriptions: Record<LeaderboardScope, string> = {
+    all: "Show current all-time levels and progress.",
+    weekly: "Show levels and XP gained this week.",
+    monthly: "Show levels and XP gained this month.",
+    yearly: "Show levels and XP gained this year.",
+  };
+
+  return subcommand
+    .setName(scope)
+    .setDescription(descriptions[scope])
+    .addIntegerOption((option) =>
+      option
+        .setName("page")
+        .setDescription("Optional page from 1 to 10.")
+        .setMinValue(1)
+        .setMaxValue(10),
+    );
+}
+
 function configureRecordSubcommand(
   subcommand: SlashCommandSubcommandBuilder,
   scope: LeaderboardRecordScope,
@@ -351,23 +385,18 @@ function configureRecordSubcommand(
 export const leaderboardCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("lb")
-    .setDescription("Show the server leaderboard. All-time levels are the default.")
-    .addStringOption((option) =>
-      option
-        .setName("period")
-        .setDescription("Optionally show this week, month, or year.")
-        .addChoices(
-          { name: "Weekly", value: "weekly" },
-          { name: "Monthly", value: "monthly" },
-          { name: "Yearly", value: "yearly" },
-        ),
+    .setDescription("Show the server level leaderboard.")
+    .addSubcommand((subcommand) =>
+      configureLeaderboardSubcommand(subcommand, "all"),
     )
-    .addIntegerOption((option) =>
-      option
-        .setName("page")
-        .setDescription("Optional page from 1 to 10.")
-        .setMinValue(1)
-        .setMaxValue(10),
+    .addSubcommand((subcommand) =>
+      configureLeaderboardSubcommand(subcommand, "weekly"),
+    )
+    .addSubcommand((subcommand) =>
+      configureLeaderboardSubcommand(subcommand, "monthly"),
+    )
+    .addSubcommand((subcommand) =>
+      configureLeaderboardSubcommand(subcommand, "yearly"),
     ),
   async execute(interaction, context) {
     if (!interaction.guildId) {
@@ -380,8 +409,7 @@ export const leaderboardCommand: BotCommand = {
 
     await interaction.deferReply();
     const view = "level" as const;
-    const scope = (interaction.options.getString("period") ??
-      "all") as LeaderboardScope;
+    const scope = interaction.options.getSubcommand(true) as LeaderboardScope;
     const page = await loadPage(context, {
       guildId: interaction.guildId,
       view,
