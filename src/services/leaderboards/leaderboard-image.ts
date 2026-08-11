@@ -7,6 +7,9 @@ const ROW_GAP = 5;
 const AVATAR_SIZE = ROW_HEIGHT;
 const CONTENT_X = AVATAR_SIZE + 12;
 const CONTENT_WIDTH = IMAGE_WIDTH - CONTENT_X - 12;
+const ROW_FONT_SIZE = 32;
+const MIN_ROW_FONT_SIZE = 27;
+const AVERAGE_GLYPH_WIDTH_FACTOR = 0.52;
 const AVATAR_CACHE_TTL_MS = 60 * 60 * 1_000;
 const AVATAR_CACHE_MAX_ENTRIES = 500;
 
@@ -47,7 +50,9 @@ function escapeXml(value: string): string {
 function formatDisplayName(value: string, detail: string, rank: number): string {
   const clean = value.replace(/[\r\n\t]/g, " ").trim() || "Unknown user";
   const rankCharacters = `#${rank}`.length;
-  const approximateAvailableCharacters = Math.floor(CONTENT_WIDTH / 13.5);
+  const approximateAvailableCharacters = Math.floor(
+    CONTENT_WIDTH / (ROW_FONT_SIZE * AVERAGE_GLYPH_WIDTH_FACTOR),
+  );
   const maximumNameLength = Math.max(
     7,
     approximateAvailableCharacters - detail.length - rankCharacters - 8,
@@ -58,6 +63,25 @@ function formatDisplayName(value: string, detail: string, rank: number): string 
   }
 
   return `${clean.slice(0, Math.max(1, maximumNameLength - 1))}…`;
+}
+
+function calculateRowFontSize(
+  displayName: string,
+  detail: string,
+  rank: number,
+): number {
+  const visibleText = `#${rank} • @${displayName} • ${detail}`;
+  const estimatedWidth =
+    visibleText.length * ROW_FONT_SIZE * AVERAGE_GLYPH_WIDTH_FACTOR;
+
+  if (estimatedWidth <= CONTENT_WIDTH) {
+    return ROW_FONT_SIZE;
+  }
+
+  return Math.max(
+    MIN_ROW_FONT_SIZE,
+    Math.floor((ROW_FONT_SIZE * CONTENT_WIDTH) / estimatedWidth),
+  );
 }
 
 function placeholderColor(userId: string): string {
@@ -100,9 +124,17 @@ function rowMarkup(
   const hasProgress = row.progress !== undefined;
   const textY = y + (hasProgress ? 43 : 46);
   const rankColor = rankColors[row.rank - 1] ?? "#F2F3F5";
-  const displayName = escapeXml(
-    formatDisplayName(profile.displayName, row.detail, row.rank),
+  const formattedDisplayName = formatDisplayName(
+    profile.displayName,
+    row.detail,
+    row.rank,
   );
+  const fontSize = calculateRowFontSize(
+    formattedDisplayName,
+    row.detail,
+    row.rank,
+  );
+  const displayName = escapeXml(formattedDisplayName);
   const detail = escapeXml(row.detail);
   const progress = Math.max(0, Math.min(1, row.progress ?? 0));
   const progressWidth = Math.round(CONTENT_WIDTH * progress);
@@ -111,7 +143,7 @@ function rowMarkup(
     <g>
       <rect x="0" y="${y}" width="${IMAGE_WIDTH}" height="${ROW_HEIGHT}" rx="6" fill="#24282B" />
       ${avatarMarkup(row, profile, y)}
-      <text x="${CONTENT_X}" y="${textY}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="26" font-weight="600" fill="#F2F3F5">
+      <text x="${CONTENT_X}" y="${textY}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="#F2F3F5">
         <tspan fill="${rankColor}" font-weight="700">#${row.rank}</tspan>
         <tspan fill="#AAB8C2"> • </tspan>
         <tspan font-weight="500">@${displayName}</tspan>
@@ -230,4 +262,6 @@ export const leaderboardImageDimensions = {
   width: IMAGE_WIDTH,
   rowHeight: ROW_HEIGHT,
   rowGap: ROW_GAP,
+  fontSize: ROW_FONT_SIZE,
+  minimumFontSize: MIN_ROW_FONT_SIZE,
 } as const;

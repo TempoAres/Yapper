@@ -50,6 +50,8 @@ describe("leaderboard image renderer", () => {
 
     assert.equal(metadata.format, "png");
     assert.equal(metadata.width, leaderboardImageDimensions.width);
+    assert.equal(leaderboardImageDimensions.fontSize, 32);
+    assert.equal(leaderboardImageDimensions.minimumFontSize, 27);
     assert.equal(
       metadata.height,
       leaderboardImageDimensions.rowHeight * 2 +
