@@ -19,7 +19,6 @@ import {
   type LeaderboardMemberProfile,
 } from "../services/leaderboards/leaderboard-image.js";
 import type {
-  LeaderboardDisplay,
   LeaderboardPage,
   LeaderboardRecordScope,
   LeaderboardScope,
@@ -28,7 +27,7 @@ import { calculateLevelProgress } from "../services/xp/level-curve.js";
 
 const buttonPrefix = "yapper:lb";
 type LeaderboardButtonAction = "first" | "previous" | "next" | "last";
-type LeaderboardView = LeaderboardDisplay | "record";
+type LeaderboardView = "level" | "record";
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
@@ -74,10 +73,7 @@ function createContextLine(page: LeaderboardPage): string | null {
     return null;
   }
 
-  const launchNote = page.launchLimited
-    ? " • First period begins when Yapper tracking started"
-    : "";
-  return `${formatDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}${launchNote}`;
+  return `${formatDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}`;
 }
 
 export function createLeaderboardImageRows(
@@ -98,24 +94,6 @@ export function createLeaderboardImageRows(
     }
 
     const progress = calculateLevelProgress(entry.allTimeXp);
-
-    if (view === "xp") {
-      if (page.scope === "all") {
-        return {
-          rank: entry.rank,
-          userId: entry.userId,
-          detail: `LVL: ${progress.level} XP: ${formatXp(entry.xp)}`,
-        };
-      }
-
-      const startingXp = Math.max(0, entry.allTimeXp - entry.xp);
-      const startingLevel = calculateLevelProgress(startingXp).level;
-      return {
-        rank: entry.rank,
-        userId: entry.userId,
-        detail: `LVL: +${Math.max(0, progress.level - startingLevel)} XP: +${formatXp(entry.xp)}`,
-      };
-    }
 
     return {
       rank: entry.rank,
@@ -147,18 +125,15 @@ export interface LeaderboardButtonRequest {
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const currentMatch = /^yapper:lb:(first|previous|next|last):(level|xp|record):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
-    customId,
-  );
-  const legacyMatch = /^yapper:leaderboard:(first|previous|next|last):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:lb:(first|previous|next|last):(level|record):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
-  const action = currentMatch?.[1] ?? legacyMatch?.[1];
-  const view = currentMatch?.[2] ?? "xp";
-  const scope = currentMatch?.[3] ?? legacyMatch?.[2];
-  const rawPage = currentMatch?.[4] ?? legacyMatch?.[3];
-  const requesterId = currentMatch?.[5] ?? legacyMatch?.[4];
+  const action = match?.[1];
+  const view = match?.[2];
+  const scope = match?.[3];
+  const rawPage = match?.[4];
+  const requesterId = match?.[5];
 
   if (!action || !scope || !rawPage || !requesterId) {
     return null;
@@ -260,9 +235,9 @@ export async function buildLeaderboardResponse(
   const title =
     view === "record"
       ? `${scopeLabels[page.scope]} Activity Records`
-      : `${scopeLabels[page.scope]} ${view === "level" ? "Level" : "XP"} Leaderboard`;
+      : `${scopeLabels[page.scope]} Level Leaderboard`;
   const embed = new EmbedBuilder()
-    .setColor(view === "record" ? 0xed4245 : view === "xp" ? 0x57f287 : 0x2ec7c9)
+    .setColor(view === "record" ? 0xed4245 : 0x2ec7c9)
     .setTitle(title)
     .setImage(`attachment://${fileName}`)
     .setFooter({
@@ -387,11 +362,6 @@ export const leaderboardCommand: BotCommand = {
           { name: "Yearly", value: "yearly" },
         ),
     )
-    .addBooleanOption((option) =>
-      option
-        .setName("xp")
-        .setDescription("Show exact XP instead of level progress."),
-    )
     .addIntegerOption((option) =>
       option
         .setName("page")
@@ -409,9 +379,7 @@ export const leaderboardCommand: BotCommand = {
     }
 
     await interaction.deferReply();
-    const view: LeaderboardDisplay = interaction.options.getBoolean("xp")
-      ? "xp"
-      : "level";
+    const view = "level" as const;
     const scope = (interaction.options.getString("period") ??
       "all") as LeaderboardScope;
     const page = await loadPage(context, {

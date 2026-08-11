@@ -20,14 +20,13 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/lb` with all-time level progress by default, optional period choices, and
-  an optional exact-XP view.
+- `/lb` with all-time level progress by default and optional weekly, monthly,
+  yearly, and page choices.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
 - Arcane-style image leaderboards with avatars, one compact row per member,
   rank colors, progress bars, and requester-bound Top 100 pagination.
-- Europe/Berlin calendar boundaries and an honest launch-date label for the
-  first partial weekly, monthly, and yearly periods.
+- Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -203,14 +202,8 @@ Weekly, monthly, and yearly periods are optional choices:
 ```
 
 They rank by the selected period while showing each member's current level and
-progress instead of an XP number. For exact XP, use the separate XP view:
-
-```text
-/lb xp:true
-/lb period:weekly xp:true
-/lb period:monthly xp:true
-/lb period:yearly xp:true
-```
+progress instead of an XP number. The public leaderboard intentionally has no
+exact-XP mode.
 
 Historical records rank every member by their personal best period so far:
 
@@ -230,9 +223,9 @@ Total XP includes the existing MEE6 import plus XP earned through Yapper.
 Weekly, monthly, and yearly boards use timestamped Yapper daily totals only.
 Weeks begin Monday at 00:00, months on the first day at 00:00, and years on
 January 1 at 00:00 in the
-server's configured timezone. During Yapper's first partial period, the embed
-clearly states that tracking begins at bot launch because historical period
-activity cannot be reconstructed from MEE6 all-time XP.
+server's configured timezone. Yapper's first partial period starts at bot
+launch because historical period activity cannot be reconstructed from MEE6
+all-time XP.
 
 ## Reaction leaderboards
 
@@ -434,7 +427,7 @@ would double-count activity.
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, and `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
-4. **Complete:** Arcane-style image level, XP, reaction, and historical-record leaderboards in Europe/Berlin time.
+4. **Complete:** Arcane-style image level, reaction, and historical-record leaderboards in Europe/Berlin time.
 5. **Complete:** `/recent xp` and controlled moderator XP tools.
 6. **Complete:** stackable XP role rewards with role-hierarchy checks.
 7. **Complete:** auditable MEE6 preview/apply/rollback imports.

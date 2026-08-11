@@ -59,7 +59,8 @@ describe("leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Level Leaderboard");
-    assert.match(json.description ?? "", /tracking started/);
+    assert.equal(json.description, "5 Aug 2026 • Europe/Berlin");
+    assert.doesNotMatch(json.description ?? "", /tracking started/);
     assert.equal(json.fields, undefined);
     assert.match(json.image?.url ?? "", /^attachment:\/\//);
     assert.equal(response.files?.length, 1);
@@ -67,18 +68,6 @@ describe("leaderboard presentation", () => {
     assert.equal(rows[0]?.detail, "LVL: 177");
     assert.equal(typeof rows[0]?.progress, "number");
     assert.doesNotMatch(rows[0]?.detail ?? "", /XP/);
-  });
-
-  it("renders exact XP and period level gain only for the XP view", async () => {
-    const page = examplePage();
-    const rows = createLeaderboardImageRows(page, "xp");
-    const response = await buildLeaderboardResponse(page, requesterId, "xp");
-    const embed = response.embeds?.[0];
-
-    assert.ok(embed && "toJSON" in embed);
-    const json = embed.toJSON();
-    assert.equal(json.title, "Weekly XP Leaderboard");
-    assert.match(rows[0]?.detail ?? "", /LVL: \+\d+ XP: \+5,073/);
   });
 
   it("renders historical record dates in one image row", async () => {
@@ -138,27 +127,42 @@ describe("leaderboard presentation", () => {
   it("accepts only valid Top 100 navigation IDs", () => {
     assert.deepEqual(
       parseLeaderboardButton(
-        `yapper:leaderboard:last:monthly:10:${requesterId}`,
+        `yapper:lb:last:record:monthly:10:${requesterId}`,
       ),
-      { action: "last", view: "xp", scope: "monthly", page: 10, requesterId },
+      {
+        action: "last",
+        view: "record",
+        scope: "monthly",
+        page: 10,
+        requesterId,
+      },
     );
     assert.equal(
       parseLeaderboardButton(
-        `yapper:leaderboard:last:monthly:11:${requesterId}`,
+        `yapper:lb:last:record:monthly:11:${requesterId}`,
+      ),
+      null,
+    );
+    assert.equal(
+      parseLeaderboardButton(
+        `yapper:lb:next:xp:weekly:2:${requesterId}`,
       ),
       null,
     );
     assert.equal(parseLeaderboardButton("some-other-button"), null);
   });
 
-  it("publishes /lb with an all-time default and optional display choices", () => {
+  it("publishes /lb with an all-time default and no XP mode", () => {
     const leaderboard = leaderboardCommand.data.toJSON();
     const top = topCommand.data.toJSON();
 
     assert.equal(leaderboard.name, "lb");
     assert.deepEqual(
       leaderboard.options?.map((option) => option.name),
-      ["period", "xp", "page"],
+      ["period", "page"],
+    );
+    assert.ok(
+      !leaderboard.options?.some((option) => option.name === "xp"),
     );
     const period = leaderboard.options?.find(
       (option) => option.name === "period",

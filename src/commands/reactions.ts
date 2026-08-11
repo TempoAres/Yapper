@@ -15,6 +15,7 @@ import type { BotCommand, CommandContext } from "./command.js";
 import {
   renderLeaderboardImage,
   resolveLeaderboardProfiles,
+  type LeaderboardImageRow,
   type LeaderboardMemberProfile,
 } from "../services/leaderboards/leaderboard-image.js";
 import type {
@@ -73,6 +74,16 @@ export function parseReactionButton(
     page,
     requesterId: match[4] as string,
   };
+}
+
+export function createReactionLeaderboardImageRows(
+  page: ReactionLeaderboardPage,
+): readonly LeaderboardImageRow[] {
+  return page.entries.map((entry) => ({
+    rank: entry.rank,
+    userId: entry.userId,
+    detail: formatCount(entry.count),
+  }));
 }
 
 function buildNavigationRow(
@@ -135,11 +146,7 @@ export async function buildReactionLeaderboardResponse(
   profiles: ReadonlyMap<string, LeaderboardMemberProfile> = new Map(),
 ): Promise<InteractionEditReplyOptions> {
   const image = await renderLeaderboardImage({
-    rows: page.entries.map((entry) => ({
-      rank: entry.rank,
-      userId: entry.userId,
-      detail: `REACTIONS: ${formatCount(entry.count)}`,
-    })),
+    rows: createReactionLeaderboardImageRows(page),
     profiles,
     emptyMessage: "No eligible reactions have been recorded yet.",
   });
