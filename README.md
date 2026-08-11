@@ -26,8 +26,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
 - Arcane-style image leaderboards with avatars, one compact row per member,
   rank colors, progress bars, and requester-bound Top 100 pagination.
-- Europe/Berlin calendar boundaries and an honest launch-date label for the
-  first partial weekly, monthly, and yearly periods.
+- Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -224,9 +223,9 @@ Total XP includes the existing MEE6 import plus XP earned through Yapper.
 Weekly, monthly, and yearly boards use timestamped Yapper daily totals only.
 Weeks begin Monday at 00:00, months on the first day at 00:00, and years on
 January 1 at 00:00 in the
-server's configured timezone. During Yapper's first partial period, the embed
-clearly states that tracking begins at bot launch because historical period
-activity cannot be reconstructed from MEE6 all-time XP.
+server's configured timezone. Yapper's first partial period starts at bot
+launch because historical period activity cannot be reconstructed from MEE6
+all-time XP.
 
 ## Reaction leaderboards
 

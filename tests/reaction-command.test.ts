@@ -4,6 +4,7 @@ import type { ActionRowBuilder, ButtonBuilder } from "discord.js";
 
 import {
   buildReactionLeaderboardResponse,
+  createReactionLeaderboardImageRows,
   parseReactionButton,
   reactionCommand,
 } from "../src/commands/reactions.js";
@@ -32,10 +33,9 @@ function examplePage(
 
 describe("reaction leaderboard presentation", () => {
   it("renders reactions received as a paginated image leaderboard", async () => {
-    const response = await buildReactionLeaderboardResponse(
-      examplePage(),
-      requesterId,
-    );
+    const page = examplePage();
+    const rows = createReactionLeaderboardImageRows(page);
+    const response = await buildReactionLeaderboardResponse(page, requesterId);
     const embed = response.embeds?.[0];
 
     assert.ok(embed && "toJSON" in embed);
@@ -44,6 +44,8 @@ describe("reaction leaderboard presentation", () => {
     assert.equal(json.fields, undefined);
     assert.match(json.image?.url ?? "", /^attachment:\/\//);
     assert.equal(response.files?.length, 1);
+    assert.equal(rows[0]?.detail, "1,234");
+    assert.doesNotMatch(rows[0]?.detail ?? "", /reactions/i);
     assert.match(json.footer?.text ?? "", /Tracking starts with this update/);
   });
 

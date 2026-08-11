@@ -59,7 +59,8 @@ describe("leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Level Leaderboard");
-    assert.match(json.description ?? "", /tracking started/);
+    assert.equal(json.description, "5 Aug 2026 • Europe/Berlin");
+    assert.doesNotMatch(json.description ?? "", /tracking started/);
     assert.equal(json.fields, undefined);
     assert.match(json.image?.url ?? "", /^attachment:\/\//);
     assert.equal(response.files?.length, 1);

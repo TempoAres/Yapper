@@ -73,10 +73,7 @@ function createContextLine(page: LeaderboardPage): string | null {
     return null;
   }
 
-  const launchNote = page.launchLimited
-    ? " • First period begins when Yapper tracking started"
-    : "";
-  return `${formatDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}${launchNote}`;
+  return `${formatDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}`;
 }
 
 export function createLeaderboardImageRows(
