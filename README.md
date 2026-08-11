@@ -183,7 +183,7 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/rank`, `/xp info`, `/lb`, and `/react received` in the
+Then test `/ping`, `/rank`, `/xp info`, `/lb all`, and `/react received` in the
 private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
@@ -191,19 +191,18 @@ Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
 
-`/lb` opens the all-time level leaderboard without requiring any options.
-Weekly, monthly, and yearly periods are optional choices:
+`/lb` provides separate all-time, weekly, monthly, and yearly subcommands:
 
 ```text
-/lb
-/lb period:weekly
-/lb period:monthly
-/lb period:yearly
+/lb all
+/lb weekly
+/lb monthly
+/lb yearly
 ```
 
-They rank by the selected period while showing each member's current level and
-progress instead of an XP number. The public leaderboard intentionally has no
-exact-XP mode.
+Every subcommand accepts an optional `page` from 1 to 10. The all-time board
+shows each member's current level and progress. Weekly, monthly, and yearly
+boards show the levels and XP gained during the selected period.
 
 Historical records rank every member by their personal best period so far:
 

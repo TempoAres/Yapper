@@ -50,7 +50,31 @@ function examplePage(overrides: Partial<LeaderboardPage> = {}): LeaderboardPage 
 }
 
 describe("leaderboard presentation", () => {
-  it("renders one image row per member with level progress by default", async () => {
+  it("renders all-time members with their current level progress", async () => {
+    const page = examplePage({
+      scope: "all",
+      periodStart: null,
+      periodEnd: null,
+      launchLimited: false,
+    });
+    const rows = createLeaderboardImageRows(page, "level");
+    const response = await buildLeaderboardResponse(page, requesterId);
+    const embed = response.embeds?.[0];
+
+    assert.ok(embed && "toJSON" in embed);
+    const json = embed.toJSON();
+    assert.equal(json.title, "All-time Level Leaderboard");
+    assert.equal(json.description, undefined);
+    assert.equal(json.fields, undefined);
+    assert.match(json.image?.url ?? "", /^attachment:\/\//);
+    assert.equal(response.files?.length, 1);
+    assert.equal(rows.length, page.entries.length);
+    assert.equal(rows[0]?.detail, "LVL: 177");
+    assert.equal(typeof rows[0]?.progress, "number");
+    assert.doesNotMatch(rows[0]?.detail ?? "", /XP/);
+  });
+
+  it("renders period members with levels and XP gained", async () => {
     const page = examplePage();
     const rows = createLeaderboardImageRows(page, "level");
     const response = await buildLeaderboardResponse(page, requesterId);
@@ -60,14 +84,9 @@ describe("leaderboard presentation", () => {
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Level Leaderboard");
     assert.equal(json.description, "5 Aug 2026 • Europe/Berlin");
-    assert.doesNotMatch(json.description ?? "", /tracking started/);
-    assert.equal(json.fields, undefined);
-    assert.match(json.image?.url ?? "", /^attachment:\/\//);
-    assert.equal(response.files?.length, 1);
-    assert.equal(rows.length, page.entries.length);
-    assert.equal(rows[0]?.detail, "LVL: 177");
-    assert.equal(typeof rows[0]?.progress, "number");
-    assert.doesNotMatch(rows[0]?.detail ?? "", /XP/);
+    assert.equal(rows[0]?.detail, "LVL: +0 XP: +5,073");
+    assert.equal(rows[1]?.detail, "LVL: +2 XP: +950");
+    assert.ok(!("progress" in (rows[0] ?? {})));
   });
 
   it("renders historical record dates in one image row", async () => {
@@ -152,26 +171,22 @@ describe("leaderboard presentation", () => {
     assert.equal(parseLeaderboardButton("some-other-button"), null);
   });
 
-  it("publishes /lb with an all-time default and no XP mode", () => {
+  it("publishes /lb with four period subcommands and optional pages", () => {
     const leaderboard = leaderboardCommand.data.toJSON();
     const top = topCommand.data.toJSON();
 
     assert.equal(leaderboard.name, "lb");
     assert.deepEqual(
       leaderboard.options?.map((option) => option.name),
-      ["period", "page"],
+      ["all", "weekly", "monthly", "yearly"],
     );
     assert.ok(
       !leaderboard.options?.some((option) => option.name === "xp"),
     );
-    const period = leaderboard.options?.find(
-      (option) => option.name === "period",
-    );
-    assert.ok(period && "choices" in period);
-    assert.deepEqual(
-      period.choices?.map((choice) => choice.value),
-      ["weekly", "monthly", "yearly"],
-    );
+    for (const option of leaderboard.options ?? []) {
+      assert.ok("options" in option);
+      assert.deepEqual(option.options?.map((child) => child.name), ["page"]);
+    }
     assert.equal(top.name, "top");
     assert.deepEqual(
       top.options?.map((option) => option.name),
