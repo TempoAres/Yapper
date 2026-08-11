@@ -9,6 +9,7 @@ import {
   parseEmojiButton,
 } from "../src/commands/emojis.js";
 import type { EmojiLeaderboardPage } from "../src/services/emoji/emoji-service.js";
+import { getTwemojiAssetUrl } from "../src/services/emoji/twemoji-image.js";
 import type { LeaderboardMemberProfile } from "../src/services/leaderboards/leaderboard-image.js";
 
 const requesterId = "939644859092992060";
@@ -37,6 +38,22 @@ function examplePage(
 }
 
 describe("emoji leaderboard presentation", () => {
+  it("resolves complete Unicode emoji sequences to pinned Twemoji artwork", () => {
+    assert.equal(
+      getTwemojiAssetUrl("😋"),
+      "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/svg/1f60b.svg",
+    );
+    assert.equal(
+      getTwemojiAssetUrl("❤️"),
+      "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/svg/2764.svg",
+    );
+    assert.equal(
+      getTwemojiAssetUrl("👨‍👩‍👧‍👦"),
+      "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/svg/1f468-200d-1f469-200d-1f467-200d-1f466.svg",
+    );
+    assert.equal(getTwemojiAssetUrl("hello 😋"), null);
+  });
+
   it("renders Top Users as an image with view and page controls", async () => {
     const page = examplePage();
     const profiles = new Map<string, LeaderboardMemberProfile>([
@@ -75,8 +92,10 @@ describe("emoji leaderboard presentation", () => {
         {
           userId: "unicode:😀",
           displayName: "😀",
-          avatarDataUri: null,
-          iconText: "😀",
+          avatarDataUri:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlZ4xkAAAAASUVORK5CYII=",
+          displayImageDataUri:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlZ4xkAAAAASUVORK5CYII=",
         },
       ],
     ]);

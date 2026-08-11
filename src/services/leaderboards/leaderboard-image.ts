@@ -9,6 +9,7 @@ const CONTENT_X = AVATAR_SIZE + 12;
 const CONTENT_WIDTH = IMAGE_WIDTH - CONTENT_X - 12;
 const ROW_FONT_SIZE = 32;
 const MIN_ROW_FONT_SIZE = 27;
+const INLINE_IMAGE_SIZE = 38;
 const AVERAGE_GLYPH_WIDTH_FACTOR = 0.52;
 const AVATAR_CACHE_TTL_MS = 60 * 60 * 1_000;
 const AVATAR_CACHE_MAX_ENTRIES = 500;
@@ -24,6 +25,7 @@ export interface LeaderboardMemberProfile {
   displayName: string;
   avatarDataUri: string | null;
   iconText?: string;
+  displayImageDataUri?: string;
 }
 
 export interface LeaderboardImageRow {
@@ -148,6 +150,32 @@ function rowMarkup(
   const namePrefix = escapeXml(row.namePrefix ?? "@");
   const progress = Math.max(0, Math.min(1, row.progress ?? 0));
   const progressWidth = Math.round(CONTENT_WIDTH * progress);
+
+  if (profile.displayImageDataUri) {
+    const rankTextWidth = Math.ceil(
+      `#${row.rank}`.length *
+        ROW_FONT_SIZE *
+        AVERAGE_GLYPH_WIDTH_FACTOR,
+    );
+    const displayImageX = CONTENT_X + rankTextWidth + 30;
+    const displayImageY =
+      y + Math.floor((ROW_HEIGHT - INLINE_IMAGE_SIZE) / 2);
+
+    return `
+    <g>
+      <rect x="0" y="${y}" width="${IMAGE_WIDTH}" height="${ROW_HEIGHT}" rx="6" fill="#24282B" />
+      ${avatarMarkup(row, profile, y)}
+      <text x="${CONTENT_X}" y="${textY}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="#F2F3F5">
+        <tspan fill="${rankColor}" font-weight="700">#${row.rank}</tspan>
+        <tspan fill="#AAB8C2"> &#8226; </tspan>
+      </text>
+      <image href="${escapeXml(profile.displayImageDataUri)}" x="${displayImageX}" y="${displayImageY}" width="${INLINE_IMAGE_SIZE}" height="${INLINE_IMAGE_SIZE}" preserveAspectRatio="xMidYMid meet" />
+      <text x="${displayImageX + INLINE_IMAGE_SIZE + 8}" y="${textY}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="#F2F3F5">
+        <tspan fill="#AAB8C2"> &#8226; </tspan>
+        <tspan>${detail}</tspan>
+      </text>
+    </g>`;
+  }
 
   return `
     <g>
