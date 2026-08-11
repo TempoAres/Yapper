@@ -27,7 +27,7 @@ import { calculateLevelProgress } from "../services/xp/level-curve.js";
 
 const buttonPrefix = "yapper:lb";
 type LeaderboardButtonAction = "first" | "previous" | "next" | "last";
-type LeaderboardView = "level" | "record";
+type LeaderboardView = "level" | "record" | "xp";
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
@@ -93,6 +93,14 @@ export function createLeaderboardImageRows(
       };
     }
 
+    if (view === "xp") {
+      return {
+        rank: entry.rank,
+        userId: entry.userId,
+        detail: `XP: ${formatXp(entry.allTimeXp)}`,
+      };
+    }
+
     const progress = calculateLevelProgress(entry.allTimeXp);
 
     if (page.scope !== "all") {
@@ -136,7 +144,7 @@ export interface LeaderboardButtonRequest {
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const match = /^yapper:lb:(first|previous|next|last):(level|record):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
@@ -156,7 +164,8 @@ export function parseLeaderboardButton(
     !Number.isInteger(page) ||
     page < 1 ||
     page > 10 ||
-    (view === "record" && scope === "all")
+    (view === "record" && scope === "all") ||
+    (view === "xp" && scope !== "all")
   ) {
     return null;
   }
@@ -240,15 +249,19 @@ export async function buildLeaderboardResponse(
     emptyMessage:
       view === "record"
         ? "No activity records have been recorded yet."
+        : view === "xp"
+          ? "No XP has been recorded for this leaderboard yet."
         : "No activity has been recorded for this leaderboard yet.",
   });
   const fileName = `yapper-${view}-${page.scope}-page-${page.page}.png`;
   const title =
     view === "record"
       ? `${scopeLabels[page.scope]} Activity Records`
+      : view === "xp"
+        ? "All-time XP Leaderboard"
       : `${scopeLabels[page.scope]} Level Leaderboard`;
   const embed = new EmbedBuilder()
-    .setColor(view === "record" ? 0xed4245 : 0x2ec7c9)
+    .setColor(view === "record" ? 0xed4245 : view === "xp" ? 0xfee75c : 0x2ec7c9)
     .setTitle(title)
     .setImage(`attachment://${fileName}`)
     .setFooter({
@@ -306,8 +319,10 @@ export async function handleLeaderboardButton(
   }
 
   if (interaction.user.id !== request.requesterId) {
+    const command = request.view === "xp" ? "/xplb" : "/lb all";
+
     await interaction.reply({
-      content: "Run `/lb all` yourself to open controls you can use.",
+      content: `Run \`${command}\` yourself to open controls you can use.`,
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -423,6 +438,49 @@ export const leaderboardCommand: BotCommand = {
 
     await interaction.editReply(
       await buildLeaderboardResponse(page, interaction.user.id, view, profiles),
+    );
+  },
+};
+
+export const xpLeaderboardCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("xplb")
+    .setDescription("Show the server's all-time XP leaderboard.")
+    .addIntegerOption((option) =>
+      option
+        .setName("page")
+        .setDescription("Optional page from 1 to 10.")
+        .setMinValue(1)
+        .setMaxValue(10),
+    ),
+  async execute(interaction, context) {
+    if (!interaction.guildId) {
+      await interaction.reply({
+        content: "XP leaderboards can only be used inside a server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+    const page = await loadPage(context, {
+      guildId: interaction.guildId,
+      view: "xp",
+      scope: "all",
+      page: interaction.options.getInteger("page") ?? 1,
+    });
+    const profiles = await resolveLeaderboardProfiles(
+      interaction.client,
+      page.entries.map((entry) => entry.userId),
+    );
+
+    await interaction.editReply(
+      await buildLeaderboardResponse(
+        page,
+        interaction.user.id,
+        "xp",
+        profiles,
+      ),
     );
   },
 };
