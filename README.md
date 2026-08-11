@@ -256,6 +256,9 @@ custom emoji counts. External custom emoji, bot messages, and webhooks are
 ignored. Stored rows contain message metadata and aggregate counts, never
 message content.
 
+Unicode emoji leaderboard artwork is provided by
+[Twemoji](https://github.com/jdecked/twemoji) under CC-BY 4.0.
+
 ## Moderator XP tools
 
 `/recent xp [user]` is an ephemeral debugging command for members with Manage

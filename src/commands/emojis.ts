@@ -27,6 +27,7 @@ import type {
   EmojiLeaderboardMetric,
   EmojiLeaderboardPage,
 } from "../services/emoji/emoji-service.js";
+import { getTwemojiAssetUrl } from "../services/emoji/twemoji-image.js";
 
 const buttonPrefix = "yapper:emoji";
 type EmojiButtonAction =
@@ -130,11 +131,18 @@ async function resolveEmojiProfiles(
       async (emojiKey): Promise<LeaderboardMemberProfile> => {
         if (emojiKey.startsWith("unicode:")) {
           const emoji = emojiKey.slice("unicode:".length);
+          const assetUrl = getTwemojiAssetUrl(emoji);
+          const imageDataUri = assetUrl
+            ? await fetchImageDataUri(assetUrl)
+            : null;
+
           return {
             userId: emojiKey,
             displayName: emoji,
-            avatarDataUri: null,
-            iconText: emoji,
+            avatarDataUri: imageDataUri,
+            ...(imageDataUri
+              ? { displayImageDataUri: imageDataUri }
+              : { iconText: emoji }),
           };
         }
 
