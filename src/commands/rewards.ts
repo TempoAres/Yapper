@@ -2,7 +2,6 @@ import {
   EmbedBuilder,
   MessageFlags,
   SlashCommandBuilder,
-  escapeMarkdown,
   type Guild,
   type InteractionEditReplyOptions,
 } from "discord.js";
@@ -55,17 +54,17 @@ export async function buildRewardsResponse(
     const lines = chunk.map((reward) => {
       const role = roles.get(reward.roleId);
       const roleLabel = role
-        ? `@${escapeMarkdown(role.name)}`
-        : `Deleted role (ID: ${reward.roleId})`;
-      return `**Level ${reward.requiredLevel}**  \u2022  ${roleLabel}`;
+        ? `<@&${role.id}>`
+        : `Deleted role \`${reward.roleId}\``;
+      return `**${reward.requiredLevel}.** ${roleLabel} \`[lvl${reward.requiredLevel}]\``;
     });
 
     return new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle(
         chunks.length === 1
-          ? "Yapper level rewards"
-          : `Yapper level rewards \u2022 ${pageIndex + 1}/${chunks.length}`,
+          ? "Rewards"
+          : `Rewards \u2022 ${pageIndex + 1}/${chunks.length}`,
       )
       .setDescription(lines.join("\n"))
       .setFooter({

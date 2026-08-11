@@ -31,8 +31,8 @@ function examplePage(
 }
 
 describe("reaction leaderboard presentation", () => {
-  it("renders reactions received as a paginated leaderboard", () => {
-    const response = buildReactionLeaderboardResponse(
+  it("renders reactions received as a paginated image leaderboard", async () => {
+    const response = await buildReactionLeaderboardResponse(
       examplePage(),
       requesterId,
     );
@@ -40,13 +40,15 @@ describe("reaction leaderboard presentation", () => {
 
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
-    assert.equal(json.title, "Reactions received");
-    assert.match(json.fields?.[0]?.value ?? "", /1,234/);
+    assert.equal(json.title, "Reactions Received");
+    assert.equal(json.fields, undefined);
+    assert.match(json.image?.url ?? "", /^attachment:\/\//);
+    assert.equal(response.files?.length, 1);
     assert.match(json.footer?.text ?? "", /Tracking starts with this update/);
   });
 
-  it("creates requester-bound navigation buttons", () => {
-    const response = buildReactionLeaderboardResponse(
+  it("creates requester-bound navigation buttons", async () => {
+    const response = await buildReactionLeaderboardResponse(
       examplePage({ metric: "given" }),
       requesterId,
     );

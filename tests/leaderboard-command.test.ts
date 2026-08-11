@@ -4,6 +4,7 @@ import type { ActionRowBuilder, ButtonBuilder } from "discord.js";
 
 import {
   buildLeaderboardResponse,
+  createLeaderboardImageRows,
   leaderboardCommand,
   parseLeaderboardButton,
   topCommand,
@@ -49,31 +50,39 @@ function examplePage(overrides: Partial<LeaderboardPage> = {}): LeaderboardPage 
 }
 
 describe("leaderboard presentation", () => {
-  it("renders levels and progress without exposing XP by default", () => {
-    const response = buildLeaderboardResponse(examplePage(), requesterId);
+  it("renders one image row per member with level progress by default", async () => {
+    const page = examplePage();
+    const rows = createLeaderboardImageRows(page, "level");
+    const response = await buildLeaderboardResponse(page, requesterId);
     const embed = response.embeds?.[0];
 
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
-    assert.equal(json.title, "Weekly level leaderboard");
+    assert.equal(json.title, "Weekly Level Leaderboard");
     assert.match(json.description ?? "", /tracking started/);
-    assert.match(json.fields?.[0]?.value ?? "", /Level \*\*177\*\*/);
-    assert.doesNotMatch(json.fields?.[0]?.value ?? "", /5,073 XP/);
+    assert.equal(json.fields, undefined);
+    assert.match(json.image?.url ?? "", /^attachment:\/\//);
+    assert.equal(response.files?.length, 1);
+    assert.equal(rows.length, page.entries.length);
+    assert.equal(rows[0]?.detail, "LVL: 177");
+    assert.equal(typeof rows[0]?.progress, "number");
+    assert.doesNotMatch(rows[0]?.detail ?? "", /XP/);
   });
 
-  it("renders exact XP only for the XP view", () => {
-    const response = buildLeaderboardResponse(examplePage(), requesterId, "xp");
+  it("renders exact XP and period level gain only for the XP view", async () => {
+    const page = examplePage();
+    const rows = createLeaderboardImageRows(page, "xp");
+    const response = await buildLeaderboardResponse(page, requesterId, "xp");
     const embed = response.embeds?.[0];
 
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
-    assert.equal(json.title, "Weekly XP leaderboard");
-    assert.match(json.fields?.[0]?.value ?? "", /5,073 XP/);
+    assert.equal(json.title, "Weekly XP Leaderboard");
+    assert.match(rows[0]?.detail ?? "", /LVL: \+\d+ XP: \+5,073/);
   });
 
-  it("renders historical record dates", () => {
-    const response = buildLeaderboardResponse(
-      examplePage({
+  it("renders historical record dates in one image row", async () => {
+    const page = examplePage({
         kind: "record",
         periodStart: null,
         periodEnd: null,
@@ -88,21 +97,24 @@ describe("leaderboard presentation", () => {
             recordEnd: "2026-08-09",
           },
         ],
-      }),
-      requesterId,
-      "record",
-    );
+      });
+    const rows = createLeaderboardImageRows(page, "record");
+    const response = await buildLeaderboardResponse(page, requesterId, "record");
     const embed = response.embeds?.[0];
 
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
-    assert.equal(json.title, "Weekly activity records");
-    assert.match(json.fields?.[0]?.value ?? "", /8,500 XP/);
-    assert.match(json.fields?.[0]?.value ?? "", /3 Aug 2026/);
+    assert.equal(json.title, "Weekly Activity Records");
+    assert.match(rows[0]?.detail ?? "", /8,500 XP/);
+    assert.match(rows[0]?.detail ?? "", /3 Aug 2026/);
   });
 
-  it("creates requester-bound first, previous, next, and last buttons", () => {
-    const response = buildLeaderboardResponse(examplePage(), requesterId, "level");
+  it("creates requester-bound first, previous, next, and last buttons", async () => {
+    const response = await buildLeaderboardResponse(
+      examplePage(),
+      requesterId,
+      "level",
+    );
     const row = response.components?.[0];
 
     assert.ok(row && "toJSON" in row);
@@ -139,20 +151,22 @@ describe("leaderboard presentation", () => {
     assert.equal(parseLeaderboardButton("some-other-button"), null);
   });
 
-  it("publishes the requested short command hierarchy", () => {
+  it("publishes /lb with an all-time default and optional display choices", () => {
     const leaderboard = leaderboardCommand.data.toJSON();
     const top = topCommand.data.toJSON();
 
     assert.equal(leaderboard.name, "lb");
     assert.deepEqual(
       leaderboard.options?.map((option) => option.name),
-      ["all", "weekly", "monthly", "yearly", "xp"],
+      ["period", "xp", "page"],
     );
-    const xpGroup = leaderboard.options?.find((option) => option.name === "xp");
-    assert.ok(xpGroup && "options" in xpGroup);
+    const period = leaderboard.options?.find(
+      (option) => option.name === "period",
+    );
+    assert.ok(period && "choices" in period);
     assert.deepEqual(
-      xpGroup.options?.map((option) => option.name),
-      ["all", "weekly", "monthly", "yearly"],
+      period.choices?.map((choice) => choice.value),
+      ["weekly", "monthly", "yearly"],
     );
     assert.equal(top.name, "top");
     assert.deepEqual(
