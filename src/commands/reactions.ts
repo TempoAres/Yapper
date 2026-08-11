@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
@@ -11,6 +12,11 @@ import {
 } from "discord.js";
 
 import type { BotCommand, CommandContext } from "./command.js";
+import {
+  renderLeaderboardImage,
+  resolveLeaderboardProfiles,
+  type LeaderboardMemberProfile,
+} from "../services/leaderboards/leaderboard-image.js";
 import type {
   ReactionLeaderboardMetric,
   ReactionLeaderboardPage,
@@ -20,19 +26,9 @@ const buttonPrefix = "yapper:react";
 type ReactionButtonAction = "first" | "previous" | "next" | "last";
 
 const metricLabels: Record<ReactionLeaderboardMetric, string> = {
-  received: "Reactions received",
-  given: "Reactions given",
+  received: "Reactions Received",
+  given: "Reactions Given",
 };
-
-function medalForRank(rank: number): string {
-  return (
-    {
-      1: "\u{1F947}",
-      2: "\u{1F948}",
-      3: "\u{1F949}",
-    }[rank] ?? `**#${rank}**`
-  );
-}
 
 function formatCount(count: number): string {
   return new Intl.NumberFormat("en-US").format(count);
@@ -79,49 +75,21 @@ export function parseReactionButton(
   };
 }
 
-export function buildReactionLeaderboardResponse(
+function buildNavigationRow(
   page: ReactionLeaderboardPage,
   requesterId: string,
-): InteractionEditReplyOptions {
-  const lines = page.entries.map(
-    (entry) =>
-      `${medalForRank(entry.rank)} <@${entry.userId}> \u2022 **${formatCount(entry.count)}**`,
-  );
-  const embed = new EmbedBuilder()
-    .setColor(page.metric === "received" ? 0xeb459e : 0xfee75c)
-    .setTitle(metricLabels[page.metric])
-    .setDescription(
-      page.metric === "received"
-        ? "The members whose messages currently hold the most reactions."
-        : "The members who have placed the most currently active reactions.",
-    )
-    .addFields({
-      name:
-        page.visibleEntryCount === 0
-          ? "Standings"
-          : `Ranks ${(page.page - 1) * page.pageSize + 1}\u2013${Math.min(
-              page.page * page.pageSize,
-              page.visibleEntryCount,
-            )}`,
-      value:
-        lines.length > 0
-          ? lines.join("\n")
-          : "No eligible reactions have been recorded yet.",
-    })
-    .setFooter({
-      text: `Page ${page.page}/${page.totalPages} \u2022 Top ${page.visibleEntryCount} of ${page.participantCount} \u2022 Tracking starts with this update`,
-    })
-    .setTimestamp(page.generatedAt);
+): ActionRowBuilder<ButtonBuilder> {
   const firstPage = 1;
   const previousPage = Math.max(firstPage, page.page - 1);
   const nextPage = Math.min(page.totalPages, page.page + 1);
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(
         createButtonCustomId("first", page.metric, firstPage, requesterId),
       )
       .setLabel("First")
-      .setEmoji("\u23EE\uFE0F")
+      .setEmoji("⏮️")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page.page === firstPage),
     new ButtonBuilder()
@@ -134,7 +102,7 @@ export function buildReactionLeaderboardResponse(
         ),
       )
       .setLabel("Back")
-      .setEmoji("\u25C0\uFE0F")
+      .setEmoji("◀️")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page.page === firstPage),
     new ButtonBuilder()
@@ -142,7 +110,7 @@ export function buildReactionLeaderboardResponse(
         createButtonCustomId("next", page.metric, nextPage, requesterId),
       )
       .setLabel("Next")
-      .setEmoji("\u25B6\uFE0F")
+      .setEmoji("▶️")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(page.page === page.totalPages),
     new ButtonBuilder()
@@ -155,12 +123,42 @@ export function buildReactionLeaderboardResponse(
         ),
       )
       .setLabel("Last")
-      .setEmoji("\u23ED\uFE0F")
+      .setEmoji("⏭️")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page.page === page.totalPages),
   );
+}
 
-  return { embeds: [embed], components: [row] };
+export async function buildReactionLeaderboardResponse(
+  page: ReactionLeaderboardPage,
+  requesterId: string,
+  profiles: ReadonlyMap<string, LeaderboardMemberProfile> = new Map(),
+): Promise<InteractionEditReplyOptions> {
+  const image = await renderLeaderboardImage({
+    rows: page.entries.map((entry) => ({
+      rank: entry.rank,
+      userId: entry.userId,
+      detail: `REACTIONS: ${formatCount(entry.count)}`,
+    })),
+    profiles,
+    emptyMessage: "No eligible reactions have been recorded yet.",
+  });
+  const fileName = `yapper-reactions-${page.metric}-page-${page.page}.png`;
+  const embed = new EmbedBuilder()
+    .setColor(page.metric === "received" ? 0xeb459e : 0xfee75c)
+    .setTitle(metricLabels[page.metric])
+    .setImage(`attachment://${fileName}`)
+    .setFooter({
+      text: `Page ${page.page}/${page.totalPages} • Top ${page.visibleEntryCount} of ${page.participantCount} • Tracking starts with this update`,
+    })
+    .setTimestamp(page.generatedAt);
+
+  return {
+    embeds: [embed],
+    components: [buildNavigationRow(page, requesterId)],
+    files: [new AttachmentBuilder(image, { name: fileName })],
+    attachments: [],
+  };
 }
 
 async function loadPage(
@@ -209,8 +207,16 @@ export async function handleReactionLeaderboardButton(
     metric: request.metric,
     page: request.page,
   });
+  const profiles = await resolveLeaderboardProfiles(
+    interaction.client,
+    page.entries.map((entry) => entry.userId),
+  );
   await interaction.editReply(
-    buildReactionLeaderboardResponse(page, request.requesterId),
+    await buildReactionLeaderboardResponse(
+      page,
+      request.requesterId,
+      profiles,
+    ),
   );
   return true;
 }
@@ -259,8 +265,12 @@ export const reactionCommand: BotCommand = {
       metric,
       page: interaction.options.getInteger("page") ?? 1,
     });
+    const profiles = await resolveLeaderboardProfiles(
+      interaction.client,
+      page.entries.map((entry) => entry.userId),
+    );
     await interaction.editReply(
-      buildReactionLeaderboardResponse(page, interaction.user.id),
+      await buildReactionLeaderboardResponse(page, interaction.user.id, profiles),
     );
   },
 };

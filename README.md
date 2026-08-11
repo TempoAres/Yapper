@@ -20,12 +20,12 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/lb all|weekly|monthly|yearly` with level progress by default and an exact-XP
-  view under `/lb xp ...`.
+- `/lb` with all-time level progress by default, optional period choices, and
+  an optional exact-XP view.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
-- Polished Discord embeds, progress bars, medals, and requester-bound buttons
-  with pages through the Top 100.
+- Arcane-style image leaderboards with avatars, one compact row per member,
+  rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries and an honest launch-date label for the
   first partial weekly, monthly, and yearly periods.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
@@ -34,7 +34,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Non-negative editable XP enforcement and protected imported balances.
 - Per-server `/xp roles add|remove|list|sync` configuration.
 - One-time `/xp roles sync-all` catch-up for every current member with stored XP.
-- Public `/rewards` list with role names and required levels, without role pings.
+- Public `/rewards` list with colored role mentions and required levels, with
+  notifications explicitly suppressed.
 - Stackable level-role catch-up after message XP, admin XP, or manual sync.
 - Clear diagnostics for missing roles, managed roles, missing Manage Roles
   permission, Discord assignment failures, and role hierarchy conflicts.
@@ -183,7 +184,7 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/rank`, `/xp info`, `/lb all`, and `/react received` in the
+Then test `/ping`, `/rank`, `/xp info`, `/lb`, and `/react received` in the
 private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
@@ -191,23 +192,24 @@ Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
 
-Level-progress leaderboards use these short commands:
+`/lb` opens the all-time level leaderboard without requiring any options.
+Weekly, monthly, and yearly periods are optional choices:
 
 ```text
-/lb all
-/lb weekly
-/lb monthly
-/lb yearly
+/lb
+/lb period:weekly
+/lb period:monthly
+/lb period:yearly
 ```
 
 They rank by the selected period while showing each member's current level and
 progress instead of an XP number. For exact XP, use the separate XP view:
 
 ```text
-/lb xp all
-/lb xp weekly
-/lb xp monthly
-/lb xp yearly
+/lb xp:true
+/lb period:weekly xp:true
+/lb period:monthly xp:true
+/lb period:yearly xp:true
 ```
 
 Historical records rank every member by their personal best period so far:
@@ -218,9 +220,11 @@ Historical records rank every member by their personal best period so far:
 /top yearly
 ```
 
-Each page contains ten members, and the First/Previous/Next/Last buttons cover
-the Top 100. Controls are bound to the person who opened the board so another
-member cannot unexpectedly change the displayed page.
+Every ranking is rendered as an image with one row per member, including the
+member's avatar and Arcane-style rank coloring. Each page contains ten members,
+and the First/Previous/Next/Last buttons cover the Top 100. Controls are bound
+to the person who opened the board so another member cannot unexpectedly change
+the displayed page.
 
 Total XP includes the existing MEE6 import plus XP earned through Yapper.
 Weekly, monthly, and yearly boards use timestamped Yapper daily totals only.
@@ -283,8 +287,8 @@ progress privately to the moderator who started it. Only one full sync can run
 per server at a time.
 
 Any member can run `/rewards` to see the configured level requirements. The
-display uses plain role names and disables mentions, so listing rewards never
-pings a role.
+display uses real role mentions so Discord shows each role's configured color,
+while allowed mentions are disabled so listing rewards never pings a role.
 
 Each level can grant one role, and each role can belong to one configured
 level. Rewards stack: a level 10 member receives every configured reward at
@@ -430,7 +434,7 @@ would double-count activity.
 1. **Complete:** local bot, GitHub, `/ping`, and the custom XP curve.
 2. **Complete:** PostgreSQL, migrations, test XP, `/rank`, and `/xp info`.
 3. **Complete:** privacy-conscious message XP, cooldowns, anti-spam, and totals.
-4. **Complete:** paginated level, XP, and historical-record leaderboards in Europe/Berlin time.
+4. **Complete:** Arcane-style image level, XP, reaction, and historical-record leaderboards in Europe/Berlin time.
 5. **Complete:** `/recent xp` and controlled moderator XP tools.
 6. **Complete:** stackable XP role rewards with role-hierarchy checks.
 7. **Complete:** auditable MEE6 preview/apply/rollback imports.
