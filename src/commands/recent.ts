@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import type { RecentXpEntry } from "../services/xp/recent-xp-service.js";
 
 function canDebugXp(interaction: ChatInputCommandInteraction): boolean {
@@ -49,7 +50,7 @@ export function buildRecentXpResponse(input: {
   generatedAt: Date;
 }): InteractionEditReplyOptions {
   const embed = new EmbedBuilder()
-    .setColor(0xfee75c)
+    .setColor(yapperColors.violet)
     .setAuthor({ name: input.displayName, iconURL: input.avatarUrl })
     .setTitle("Recent XP events")
     .setDescription(

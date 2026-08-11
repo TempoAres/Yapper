@@ -1,5 +1,6 @@
 import type { BotCommand } from "./command.js";
 import { commandGuideCommand } from "./command-guide.js";
+import { emojiCommand } from "./emojis.js";
 import {
   leaderboardCommand,
   topCommand,
@@ -15,6 +16,7 @@ import { xpCommand } from "./xp.js";
 export const commands: readonly BotCommand[] = [
   pingCommand,
   commandGuideCommand,
+  emojiCommand,
   leaderboardCommand,
   xpLeaderboardCommand,
   topCommand,

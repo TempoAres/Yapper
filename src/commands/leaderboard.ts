@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand, CommandContext } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import {
   renderLeaderboardImage,
   resolveLeaderboardProfiles,
@@ -261,7 +262,13 @@ export async function buildLeaderboardResponse(
         ? "All-time XP Leaderboard"
       : `${scopeLabels[page.scope]} Level Leaderboard`;
   const embed = new EmbedBuilder()
-    .setColor(view === "record" ? 0xed4245 : view === "xp" ? 0xfee75c : 0x2ec7c9)
+    .setColor(
+      view === "record"
+        ? yapperColors.magenta
+        : view === "xp"
+          ? yapperColors.violet
+          : yapperColors.cyan,
+    )
     .setTitle(title)
     .setImage(`attachment://${fileName}`)
     .setFooter({

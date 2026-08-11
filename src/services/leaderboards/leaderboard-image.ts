@@ -23,6 +23,7 @@ export interface LeaderboardMemberProfile {
   userId: string;
   displayName: string;
   avatarDataUri: string | null;
+  iconText?: string;
 }
 
 export interface LeaderboardImageRow {
@@ -30,6 +31,7 @@ export interface LeaderboardImageRow {
   userId: string;
   detail: string;
   progress?: number;
+  namePrefix?: string;
 }
 
 export interface LeaderboardImageInput {
@@ -109,10 +111,17 @@ function avatarMarkup(
       <image href="${escapeXml(profile.avatarDataUri)}" x="0" y="${y}" width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${escapeXml(clipId)})" />`;
   }
 
-  const initial = escapeXml(profile.displayName.trim().charAt(0).toUpperCase() || "?");
+  const initial = escapeXml(
+    profile.iconText ??
+      Array.from(profile.displayName.trim())[0]?.toUpperCase() ??
+      "?",
+  );
+  const iconFontFamily = profile.iconText
+    ? "Noto Color Emoji, Segoe UI Emoji, Apple Color Emoji, DejaVu Sans, sans-serif"
+    : "Arial, Liberation Sans, DejaVu Sans, sans-serif";
   return `
       <rect x="0" y="${y}" width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" rx="6" fill="${placeholderColor(row.userId)}" />
-      <text x="${AVATAR_SIZE / 2}" y="${y + 48}" text-anchor="middle" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="38" font-weight="500" fill="#FFFFFF">${initial}</text>`;
+      <text x="${AVATAR_SIZE / 2}" y="${y + 48}" text-anchor="middle" font-family="${iconFontFamily}" font-size="38" font-weight="500" fill="#FFFFFF">${initial}</text>`;
 }
 
 function rowMarkup(
@@ -136,6 +145,7 @@ function rowMarkup(
   );
   const displayName = escapeXml(formattedDisplayName);
   const detail = escapeXml(row.detail);
+  const namePrefix = escapeXml(row.namePrefix ?? "@");
   const progress = Math.max(0, Math.min(1, row.progress ?? 0));
   const progressWidth = Math.round(CONTENT_WIDTH * progress);
 
@@ -146,7 +156,7 @@ function rowMarkup(
       <text x="${CONTENT_X}" y="${textY}" font-family="Arial, Liberation Sans, DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="#F2F3F5">
         <tspan fill="${rankColor}" font-weight="700">#${row.rank}</tspan>
         <tspan fill="#AAB8C2"> • </tspan>
-        <tspan font-weight="500">@${displayName}</tspan>
+        <tspan font-weight="500">${namePrefix}${displayName}</tspan>
         <tspan fill="#AAB8C2"> • </tspan>
         <tspan>${detail}</tspan>
       </text>
@@ -159,7 +169,7 @@ function rowMarkup(
     </g>`;
 }
 
-async function fetchAvatarDataUri(url: string): Promise<string | null> {
+export async function fetchImageDataUri(url: string): Promise<string | null> {
   const cached = avatarCache.get(url);
 
   if (cached && cached.expiresAt > Date.now()) {
@@ -216,7 +226,7 @@ export async function resolveLeaderboardProfiles(
         return {
           userId,
           displayName: user.username,
-          avatarDataUri: await fetchAvatarDataUri(avatarUrl),
+          avatarDataUri: await fetchImageDataUri(avatarUrl),
         };
       } catch {
         return {

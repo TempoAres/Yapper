@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import type {
   RoleRewardService,
   XpRoleReward,
@@ -41,7 +42,7 @@ export async function buildRewardsResponse(
     return {
       embeds: [
         new EmbedBuilder()
-          .setColor(0x5865f2)
+          .setColor(yapperColors.violet)
           .setTitle("Yapper level rewards")
           .setDescription("No level rewards are configured yet."),
       ],
@@ -60,7 +61,7 @@ export async function buildRewardsResponse(
     });
 
     return new EmbedBuilder()
-      .setColor(0x5865f2)
+      .setColor(yapperColors.violet)
       .setTitle(
         chunks.length === 1
           ? "Rewards"

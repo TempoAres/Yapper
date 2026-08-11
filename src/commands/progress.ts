@@ -1,13 +1,21 @@
 import {
+  AttachmentBuilder,
   EmbedBuilder,
   MessageFlags,
   type ChatInputCommandInteraction,
+  type InteractionEditReplyOptions,
   type User,
 } from "discord.js";
 
 import type { CommandContext } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import { calculateLevelProgress } from "../services/xp/level-curve.js";
 import { buildProgressBar } from "../services/xp/progress-bar.js";
+import {
+  resolveLeaderboardProfiles,
+  type LeaderboardMemberProfile,
+} from "../services/leaderboards/leaderboard-image.js";
+import { renderRankImage } from "../services/leaderboards/rank-image.js";
 
 function formatXp(xp: number): string {
   return new Intl.NumberFormat("en-US").format(xp);
@@ -22,7 +30,7 @@ export function createProgressEmbed(
   const progressBar = buildProgressBar(progress.progress);
 
   const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(yapperColors.violet)
     .setAuthor({
       name: user.globalName ?? user.username,
       iconURL: user.displayAvatarURL(),
@@ -56,6 +64,38 @@ export function createProgressEmbed(
   return embed;
 }
 
+export async function buildRankResponse(
+  user: User,
+  stats: Awaited<ReturnType<CommandContext["memberXpService"]["getMemberStats"]>>,
+  profile: LeaderboardMemberProfile,
+): Promise<InteractionEditReplyOptions> {
+  const progress = calculateLevelProgress(stats.allTimeXp);
+  const image = await renderRankImage({
+    profile: {
+      ...profile,
+      displayName: user.globalName ?? user.username,
+    },
+    rank: stats.rank,
+    level: progress.level,
+    totalXp: stats.allTimeXp,
+    xpInCurrentLevel: progress.xpInCurrentLevel,
+    xpForNextLevel: progress.xpForNextLevel,
+    xpNeededForNextLevel: progress.xpNeededForNextLevel,
+    progress: progress.progress,
+  });
+  const fileName = `yapper-rank-${user.id}.png`;
+  const embed = new EmbedBuilder()
+    .setColor(yapperColors.cyan)
+    .setTitle("Yapper Rank")
+    .setImage(`attachment://${fileName}`);
+
+  return {
+    embeds: [embed],
+    files: [new AttachmentBuilder(image, { name: fileName })],
+    attachments: [],
+  };
+}
+
 export async function executeProgressCommand(
   interaction: ChatInputCommandInteraction,
   context: CommandContext,
@@ -77,7 +117,18 @@ export async function executeProgressCommand(
     user.id,
   );
 
-  await interaction.editReply({
-    embeds: [createProgressEmbed(user, stats, includeCurveExplanation)],
-  });
+  if (includeCurveExplanation) {
+    await interaction.editReply({
+      embeds: [createProgressEmbed(user, stats, true)],
+    });
+    return;
+  }
+
+  const profiles = await resolveLeaderboardProfiles(interaction.client, [user.id]);
+  const profile = profiles.get(user.id) ?? {
+    userId: user.id,
+    displayName: user.globalName ?? user.username,
+    avatarDataUri: null,
+  };
+  await interaction.editReply(await buildRankResponse(user, stats, profile));
 }

@@ -10,10 +10,13 @@ import { commandsByName } from "../commands/index.js";
 import type { CommandContext } from "../commands/command.js";
 import { handleLeaderboardButton } from "../commands/leaderboard.js";
 import { handleReactionLeaderboardButton } from "../commands/reactions.js";
+import { handleEmojiLeaderboardButton } from "../commands/emojis.js";
 import type { BotConfig } from "../config/environment.js";
 import type { MessageXpTracker } from "../services/xp/message-xp-tracker.js";
 import type { ReactionTracker } from "../services/reactions/reaction-tracker.js";
+import { registerGoogleSearchListener } from "./google-search-listener.js";
 import { registerMessageXpListener } from "./message-xp-listener.js";
+import { registerMessageEmojiListener } from "./message-emoji-listener.js";
 import { registerReactionListener } from "./reaction-listener.js";
 
 export async function startBot(
@@ -38,6 +41,8 @@ export async function startBot(
     messageXpTracker,
     context.roleRewardCoordinator,
   );
+  registerGoogleSearchListener(client);
+  registerMessageEmojiListener(client, context.emojiService);
   registerReactionListener(client, reactionTracker);
 
   client.once(Events.ClientReady, (readyClient) => {
@@ -47,6 +52,10 @@ export async function startBot(
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isButton()) {
+        if (await handleEmojiLeaderboardButton(interaction, context)) {
+          return;
+        }
+
         if (await handleLeaderboardButton(interaction, context)) {
           return;
         }

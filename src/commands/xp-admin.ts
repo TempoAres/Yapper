@@ -8,6 +8,7 @@ import {
 
 import type { CommandContext } from "./command.js";
 import { describeRoleSync } from "./xp-roles.js";
+import { yapperColors } from "../presentation/colors.js";
 import type { AdminXpOperation } from "../services/xp/admin-xp-service.js";
 
 export type AdminXpSubcommand = "view" | AdminXpOperation;
@@ -35,7 +36,7 @@ function createAdminViewEmbed(
   stats: Awaited<ReturnType<CommandContext["memberXpService"]["getMemberStats"]>>,
 ): EmbedBuilder {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(yapperColors.violet)
     .setAuthor({
       name: user.globalName ?? user.username,
       iconURL: user.displayAvatarURL(),

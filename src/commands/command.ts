@@ -10,6 +10,7 @@ import type { RecentXpService } from "../services/xp/recent-xp-service.js";
 import type { RoleRewardService } from "../services/roles/role-reward-service.js";
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 import type { ReactionService } from "../services/reactions/reaction-service.js";
+import type { EmojiService } from "../services/emoji/emoji-service.js";
 
 export interface CommandContext {
   memberXpService: MemberXpService;
@@ -19,6 +20,7 @@ export interface CommandContext {
   roleRewardService: RoleRewardService;
   roleRewardCoordinator: RoleRewardCoordinator;
   reactionService: ReactionService;
+  emojiService: EmojiService;
 }
 
 export interface SlashCommandData {

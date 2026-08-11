@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 
 const commandGroups = [
   {
@@ -20,14 +21,18 @@ const commandGroups = [
     name: "Reaction leaderboards",
     commands: "/react received, /react given",
   },
+  {
+    name: "Emoji leaderboards",
+    commands: "/emoji all, /emoji weekly, /emoji monthly, /emoji yearly",
+  },
   { name: "Personal progress", commands: "/rank, /xp info" },
   { name: "Level rewards", commands: "/rewards" },
-  { name: "Other", commands: "/ping, /cmd" },
+  { name: "Other", commands: "/ping, /cmd, ?g <query>" },
 ] as const;
 
 export function buildCommandGuideResponse(): InteractionReplyOptions {
   const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
+    .setColor(yapperColors.violet)
     .setTitle("Yapper command guide")
     .addFields(
       commandGroups.map((group) => ({

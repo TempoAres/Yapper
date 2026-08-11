@@ -19,6 +19,9 @@ The migrations create:
 - `xp_admin_audit`
 - `reaction_memberships` (deduplicated active Discord reactions)
 - `member_reaction_totals` (given/received leaderboard totals)
+- `message_emoji_usage` (deduplicated per-message emoji counts)
+- `emoji_user_daily_totals` (period user rankings)
+- `emoji_usage_daily_totals` (period emoji rankings)
 
 `xp_admin_audit` keeps moderator corrections separate from activity awards.
 It records before/after Yapper XP and a Discord interaction ID for auditability
@@ -33,3 +36,7 @@ queries never need Discord permissions or role-cache objects.
 Reaction membership rows contain IDs and timestamps only; they never store
 message content. Removing a reaction or message transactionally adjusts the
 aggregated totals.
+
+Message emoji rows also contain IDs, timestamps, emoji keys, and counts only.
+Daily user and emoji totals make all-time and calendar-period image
+leaderboards fast without retaining message text.
