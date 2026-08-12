@@ -11,6 +11,7 @@ import { PostgresRecentXpService } from "./database/recent-xp-service.js";
 import { PostgresRoleRewardService } from "./database/role-reward-service.js";
 import { PostgresReactionService } from "./database/reaction-service.js";
 import { PostgresEmojiService } from "./database/emoji-service.js";
+import { PostgresReminderService } from "./database/reminder-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
@@ -21,6 +22,7 @@ import {
 } from "./config/environment.js";
 import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
 import { ReactionTracker } from "./services/reactions/reaction-tracker.js";
+import { ReminderRunner } from "./services/reminders/reminder-runner.js";
 import {
   startHealthServer,
   stopHealthServer,
@@ -32,6 +34,7 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(databaseConfig);
   let client: Client | undefined;
   let healthServer: Server | undefined;
+  let reminderRunner: ReminderRunner | undefined;
 
   try {
     await runMigrations(pool);
@@ -46,6 +49,7 @@ async function main(): Promise<void> {
     const roleRewardService = new PostgresRoleRewardService(pool);
     const reactionService = new PostgresReactionService(pool);
     const emojiService = new PostgresEmojiService(pool);
+    const reminderService = new PostgresReminderService(pool);
     const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
       roleRewardService,
       memberXpService,
@@ -66,10 +70,13 @@ async function main(): Promise<void> {
         roleRewardCoordinator,
         reactionService,
         emojiService,
+        reminderService,
       },
       messageXpTracker,
       reactionTracker,
     );
+    reminderRunner = new ReminderRunner(client, reminderService);
+    reminderRunner.start();
     const healthPort = loadHealthConfig().port;
 
     if (healthPort !== undefined) {
@@ -90,6 +97,7 @@ async function main(): Promise<void> {
 
       isShuttingDown = true;
       console.log(`Received ${signal}; shutting Yapper down.`);
+      await reminderRunner?.stop();
       await stopHealthServer(healthServer);
       client?.destroy();
       await pool.end();
@@ -106,6 +114,7 @@ async function main(): Promise<void> {
     process.once("SIGINT", () => requestShutdown("SIGINT"));
     process.once("SIGTERM", () => requestShutdown("SIGTERM"));
   } catch (error) {
+    await reminderRunner?.stop();
     await stopHealthServer(healthServer);
     client?.destroy();
     await pool.end();

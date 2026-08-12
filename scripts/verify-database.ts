@@ -3,6 +3,7 @@ import { PostgresLeaderboardService } from "../src/database/leaderboard-service.
 import { PostgresMemberXpService } from "../src/database/member-xp-service.js";
 import { createDatabasePool } from "../src/database/pool.js";
 import { PostgresReactionService } from "../src/database/reaction-service.js";
+import { PostgresReminderService } from "../src/database/reminder-service.js";
 
 function requireCondition(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -164,6 +165,52 @@ async function verify(): Promise<void> {
     requireCondition(
       emptyReceived.entries.length === 0,
       "Reaction cleanup did not return the leaderboard to zero.",
+    );
+
+    const reminderService = new PostgresReminderService(pool);
+    const futureReminder = await reminderService.create({
+      guildId,
+      userId: firstUserId,
+      channelId: "300000000000000001",
+      message: "Future reminder",
+      remindAt: new Date("2026-08-20T12:00:00.000Z"),
+    });
+    const dueReminder = await reminderService.create({
+      guildId,
+      userId: firstUserId,
+      channelId: "300000000000000001",
+      message: "Due reminder",
+      remindAt: new Date("2026-08-11T11:00:00.000Z"),
+    });
+    const pendingReminders = await reminderService.list({
+      guildId,
+      userId: firstUserId,
+      limit: 10,
+    });
+    requireCondition(
+      pendingReminders.length === 2 &&
+        pendingReminders[0]?.id === dueReminder.id,
+      "Pending reminders were not returned in delivery order.",
+    );
+    const dueReminders = await reminderService.claimDue({
+      now: new Date("2026-08-11T12:00:00.000Z"),
+      limit: 25,
+    });
+    requireCondition(
+      dueReminders.length === 1 && dueReminders[0]?.id === dueReminder.id,
+      "The reminder claim included the wrong rows.",
+    );
+    await reminderService.markDelivered(
+      dueReminder.id,
+      new Date("2026-08-11T12:00:00.000Z"),
+    );
+    requireCondition(
+      await reminderService.cancel({
+        guildId,
+        userId: firstUserId,
+        reminderId: futureReminder.id,
+      }),
+      "A pending reminder could not be cancelled.",
     );
 
     console.log("Database integration verified successfully.");

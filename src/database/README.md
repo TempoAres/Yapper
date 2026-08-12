@@ -38,5 +38,7 @@ message content. Removing a reaction or message transactionally adjusts the
 aggregated totals.
 
 Message emoji rows also contain IDs, timestamps, emoji keys, and counts only.
+The `reminders` table is the intentional content exception: it keeps user-written
+reminder text plus delivery state so future pings survive process and VPS restarts.
 Daily user and emoji totals make all-time and calendar-period image
 leaderboards fast without retaining message text.

@@ -33,6 +33,7 @@ simple architecture intended to be approachable for a first-time bot developer.
   rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
 - `/reset info` with timezone-aware Discord countdowns for every period reset.
+- `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -56,7 +57,9 @@ Yapper reads message content only long enough to decide whether a message is
 meaningful and repeated, detect `?g`, and count eligible emoji. It stores a
 temporary one-way hash for duplicate filtering; PostgreSQL receives IDs,
 timestamps, source type, XP amounts, emoji keys, and emoji counts only. Message
-text, images, and attachments are never downloaded or stored.
+text, images, and attachments are never downloaded or stored. Reminder text is
+the deliberate exception: Yapper stores it until the reminder is delivered or
+cancelled because the future ping could not work without it.
 
 ## Prerequisites
 
@@ -190,8 +193,8 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `/rank`, `/xp info`, `/lb all`,
-`/xplb`, and `/react received` in the private server.
+Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `/timestamp`, `/rank`, `/xp info`,
+`/lb all`, `/xplb`, and `/react received` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
@@ -257,6 +260,27 @@ window. `/reset info` shows the next weekly, monthly, and yearly boundaries as
 Discord timestamps. Discord counts them down automatically; after a boundary
 passes, running the command again calculates the following reset. All-time and
 historical-record leaderboards do not reset.
+
+## Timestamps and reminders
+
+`/timestamp` converts a local date and time into Discord's exact and relative
+timestamp formats. It accepts `YYYY-MM-DD` or `DD.MM.YYYY` dates and 24-hour
+`HH:MM` times. Input uses the server timezone, while Discord renders the result
+in each reader's own timezone and keeps relative text such as “in 3 days” live.
+
+Persistent reminders use the same date and time formats:
+
+```text
+/reminder set date:2026-08-20 time:18:30 message:Check the oven
+/reminder list
+/reminder cancel id:42
+```
+
+Yapper privately confirms creation, listing, and cancellation. At the selected
+time it pings only the reminder creator in the channel where the reminder was
+set. A member can keep up to ten pending reminders per server. Reminders survive
+bot and VPS restarts, and temporary Discord delivery failures are retried with
+increasing delays.
 
 ## Reaction leaderboards
 
@@ -480,4 +504,5 @@ would double-count activity.
 7. **Complete:** auditable MEE6 preview/apply/rollback imports.
 8. **Complete:** production Docker deployment, backups, restarts, and monitoring.
 9. **Complete:** reactions-given and reactions-received statistics.
-10. Future candidates: reminders, countdowns, and optional utility commands.
+10. **In progress:** timestamps and persistent reminders are complete; countdowns
+    and optional utility commands remain future candidates.
