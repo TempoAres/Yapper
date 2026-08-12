@@ -135,8 +135,7 @@ describe("leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Activity Records");
-    assert.match(rows[0]?.detail ?? "", /8,500 XP/);
-    assert.match(rows[0]?.detail ?? "", /3 Aug 2026/);
+    assert.equal(rows[0]?.detail, "8,500 XP • 3.–9. Aug 26");
   });
 
   it("creates requester-bound first, previous, next, and last buttons", async () => {
