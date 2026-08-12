@@ -11,6 +11,7 @@ import type { RoleRewardService } from "../services/roles/role-reward-service.js
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 import type { ReactionService } from "../services/reactions/reaction-service.js";
 import type { EmojiService } from "../services/emoji/emoji-service.js";
+import type { ReminderService } from "../services/reminders/reminder-service.js";
 
 export interface CommandContext {
   memberXpService: MemberXpService;
@@ -21,6 +22,7 @@ export interface CommandContext {
   roleRewardCoordinator: RoleRewardCoordinator;
   reactionService: ReactionService;
   emojiService: EmojiService;
+  reminderService: ReminderService;
 }
 
 export interface SlashCommandData {

@@ -30,9 +30,16 @@ const commandGroups = [
     commands: "/emoji all, /emoji weekly, /emoji monthly, /emoji yearly",
   },
   { name: "Leaderboard resets", commands: "/reset info" },
+  {
+    name: "Reminders",
+    commands: "/reminder set, /reminder list, /reminder cancel",
+  },
   { name: "Personal progress", commands: "/rank, /xp info" },
   { name: "Level rewards", commands: "/rewards" },
-  { name: "Other", commands: "/ping, /cmd, ?g <query>" },
+  {
+    name: "Other",
+    commands: "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>",
+  },
 ] as const;
 
 export function buildCommandGuideResponse(): InteractionReplyOptions {
