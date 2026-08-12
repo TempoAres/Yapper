@@ -31,7 +31,7 @@ function examplePage(
     ],
     timezone: "Europe/Berlin",
     periodStart: "2026-08-10",
-    periodEnd: "2026-08-11",
+    periodEnd: "2026-08-16",
     generatedAt: new Date("2026-08-11T12:00:00.000Z"),
     ...overrides,
   };
@@ -73,7 +73,7 @@ describe("emoji leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Emoji Users");
-    assert.equal(json.description, "10 Aug 2026 – 11 Aug 2026 • Europe/Berlin");
+    assert.equal(json.description, "10–16 Aug 2026 • Europe/Berlin");
     assert.match(json.image?.url ?? "", /^attachment:\/\//);
     assert.equal(response.files?.length, 1);
     assert.equal(response.components?.length, 2);

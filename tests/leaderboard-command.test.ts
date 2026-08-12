@@ -42,8 +42,8 @@ function examplePage(overrides: Partial<LeaderboardPage> = {}): LeaderboardPage 
       },
     ],
     timezone: "Europe/Berlin",
-    periodStart: "2026-08-05",
-    periodEnd: "2026-08-05",
+    periodStart: "2026-08-03",
+    periodEnd: "2026-08-09",
     launchLimited: true,
     generatedAt: new Date("2026-08-05T15:00:00.000Z"),
     ...overrides,
@@ -84,7 +84,7 @@ describe("leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Level Leaderboard");
-    assert.equal(json.description, "5 Aug 2026 • Europe/Berlin");
+    assert.equal(json.description, "3–9 Aug 2026 • Europe/Berlin");
     assert.equal(rows[0]?.detail, "LVL: +0 XP: +5,073");
     assert.equal(rows[1]?.detail, "LVL: +2 XP: +950");
     assert.ok(!("progress" in (rows[0] ?? {})));

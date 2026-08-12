@@ -15,6 +15,7 @@ import {
 
 import type { BotCommand, CommandContext } from "./command.js";
 import { yapperColors } from "../presentation/colors.js";
+import { formatCalendarDateRange } from "../presentation/date-format.js";
 import {
   fetchImageDataUri,
   renderLeaderboardImage,
@@ -49,24 +50,12 @@ function formatCount(count: number): string {
   return new Intl.NumberFormat("en-US").format(count);
 }
 
-function formatIsoDate(date: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00.000Z`));
-}
-
 function createContextLine(page: EmojiLeaderboardPage): string | null {
   if (!page.periodStart || !page.periodEnd) {
     return null;
   }
 
-  const start = formatIsoDate(page.periodStart);
-  const end = formatIsoDate(page.periodEnd);
-  const range = start === end ? start : `${start} – ${end}`;
-  return `${range} • ${page.timezone}`;
+  return `${formatCalendarDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}`;
 }
 
 function createButtonCustomId(

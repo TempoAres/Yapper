@@ -31,6 +31,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Arcane-style image leaderboards with avatars, one compact row per member,
   rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
+- `/reset info` with timezone-aware Discord countdowns for every period reset.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -233,6 +234,13 @@ January 1 at 00:00 in the
 server's configured timezone. Yapper's first partial period starts at bot
 launch because historical period activity cannot be reconstructed from MEE6
 all-time XP.
+
+Current-period embeds show the complete calendar window, such as Monday through
+Sunday, while their XP total includes only activity recorded so far in that
+window. `/reset info` shows the next weekly, monthly, and yearly boundaries as
+Discord timestamps. Discord counts them down automatically; after a boundary
+passes, running the command again calculates the following reset. All-time and
+historical-record leaderboards do not reset.
 
 ## Reaction leaderboards
 

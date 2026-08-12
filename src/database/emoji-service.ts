@@ -292,8 +292,8 @@ export class PostgresEmojiService implements EmojiService {
       visibleEntryCount,
       entries,
       timezone: settings.timezone,
-      periodStart: period.startDate,
-      periodEnd: period.endDate,
+      periodStart: period.displayStartDate,
+      periodEnd: period.displayEndDate,
       generatedAt: input.now,
     };
   }
