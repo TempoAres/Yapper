@@ -9,6 +9,8 @@ import {
   type LeaderboardResetSchedule,
   type LeaderboardScope,
   type LeaderboardService,
+  type LeaderboardWinEntry,
+  type LeaderboardWinPage,
 } from "../services/leaderboards/leaderboard-service.js";
 import {
   calculateLeaderboardPeriod,
@@ -30,6 +32,11 @@ interface EntryRow {
   all_time_xp: string;
   record_start: string | null;
   record_end: string | null;
+}
+
+interface WinEntryRow {
+  user_id: string;
+  wins: string;
 }
 
 interface TotalsQuery {
@@ -164,6 +171,52 @@ function buildRecordTotalsQuery(
       WHERE best_periods.record_order = 1
     `,
     parameters: [guildId],
+  };
+}
+
+function buildWinTotalsQuery(
+  guildId: string,
+  scope: LeaderboardRecordScope,
+  currentPeriodStart: string,
+): TotalsQuery {
+  const startExpression = periodStartExpression(scope);
+
+  return {
+    sql: `
+      WITH dated_totals AS (
+        SELECT
+          user_id,
+          ${startExpression} AS period_start,
+          amount
+        FROM daily_xp_totals
+        WHERE guild_id = $1
+      ),
+      period_totals AS (
+        SELECT
+          user_id,
+          period_start,
+          SUM(amount)::bigint AS xp
+        FROM dated_totals
+        WHERE period_start < $2::date
+        GROUP BY user_id, period_start
+        HAVING SUM(amount) > 0
+      ),
+      period_rankings AS (
+        SELECT
+          user_id,
+          period_start,
+          ROW_NUMBER() OVER (
+            PARTITION BY period_start
+            ORDER BY xp DESC, user_id ASC
+          ) AS period_rank
+        FROM period_totals
+      )
+      SELECT user_id, COUNT(*)::bigint AS wins
+      FROM period_rankings
+      WHERE period_rank = 1
+      GROUP BY user_id
+    `,
+    parameters: [guildId, currentPeriodStart],
   };
 }
 
@@ -324,6 +377,91 @@ export class PostgresLeaderboardService implements LeaderboardService {
       now: input.now,
       timezone: settings.timezone,
     });
+  }
+
+  public async getWinPage(input: {
+    guildId: string;
+    scope: LeaderboardRecordScope;
+    page: number;
+    now: Date;
+  }): Promise<LeaderboardWinPage> {
+    if (!Number.isSafeInteger(input.page) || input.page < 1) {
+      throw new RangeError("Leaderboard page must be a positive whole number.");
+    }
+
+    const settings = await this.loadGuildSettings(input.guildId);
+    const period = calculateLeaderboardPeriod({
+      scope: input.scope,
+      now: input.now,
+      timezone: settings.timezone,
+      launchedAt: settings.launched_at,
+    });
+
+    if (!period.displayStartDate) {
+      throw new Error(`Missing current ${input.scope} period boundary.`);
+    }
+
+    const totals = buildWinTotalsQuery(
+      input.guildId,
+      input.scope,
+      period.displayStartDate,
+    );
+    const countResult = await this.pool.query<CountRow>(
+      `
+        WITH leaderboard_wins AS (${totals.sql})
+        SELECT COUNT(*)::text AS count
+        FROM leaderboard_wins
+      `,
+      totals.parameters,
+    );
+    const participantCount = parseDatabaseInteger(
+      countResult.rows[0]?.count ?? "0",
+      "wins leaderboard participant count",
+    );
+    const visibleEntryCount = Math.min(
+      participantCount,
+      LEADERBOARD_MAX_ENTRIES,
+    );
+    const totalPages = Math.max(
+      1,
+      Math.ceil(visibleEntryCount / LEADERBOARD_PAGE_SIZE),
+    );
+    const page = Math.min(input.page, totalPages);
+    const offset = (page - 1) * LEADERBOARD_PAGE_SIZE;
+    const entriesResult = await this.pool.query<WinEntryRow>(
+      `
+        WITH leaderboard_wins AS (${totals.sql})
+        SELECT user_id, wins
+        FROM leaderboard_wins
+        ORDER BY wins DESC, user_id ASC
+        LIMIT $3
+        OFFSET $4
+      `,
+      [
+        ...totals.parameters,
+        LEADERBOARD_PAGE_SIZE,
+        offset,
+      ],
+    );
+    const entries: LeaderboardWinEntry[] = entriesResult.rows.map(
+      (row, index) => ({
+        rank: offset + index + 1,
+        userId: row.user_id,
+        wins: parseDatabaseInteger(row.wins, "leaderboard wins"),
+      }),
+    );
+
+    return {
+      scope: input.scope,
+      page,
+      pageSize: LEADERBOARD_PAGE_SIZE,
+      totalPages,
+      participantCount,
+      visibleEntryCount,
+      entries,
+      timezone: settings.timezone,
+      generatedAt: input.now,
+    };
   }
 
   public async getRecordPage(input: {

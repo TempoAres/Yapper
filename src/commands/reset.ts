@@ -34,7 +34,7 @@ export function buildResetInfoResponse(
           { name: "Yearly", value: resetValue(schedule.yearly) },
         )
         .setFooter({
-          text: "All-time, XP, activity-record, and reaction leaderboards never reset",
+          text: "All-time, XP, wins, activity-record, and reaction leaderboards never reset",
         }),
     ],
   };
