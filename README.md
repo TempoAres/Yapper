@@ -25,6 +25,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/lb all|weekly|monthly|yearly` level leaderboards with optional pages.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
 - `/top weekly|monthly|yearly` for each member's best historical activity period.
+- `/wins weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
 - `/emoji all|weekly|monthly|yearly` message-emoji leaderboards with Top Users
   and Top Emojis views.
@@ -220,6 +221,20 @@ Historical records rank every member by their personal best period so far:
 /top monthly
 /top yearly
 ```
+
+Leaderboard wins count how many completed XP periods each member finished in
+first place, with weekly, monthly, and yearly wins kept separate:
+
+```text
+/wins weekly
+/wins monthly
+/wins yearly
+```
+
+The active period is excluded until it ends. When XP totals tie, Yapper uses
+the same stable user-ID tie-break order as the corresponding XP leaderboard,
+so every completed period awards exactly one win. Each wins subcommand also
+accepts an optional `page` from 1 to 10.
 
 Every ranking is rendered as an image with one row per member, including the
 member's avatar and Arcane-style rank coloring. Each page contains ten members,

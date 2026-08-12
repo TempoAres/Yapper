@@ -12,6 +12,7 @@ import { reactionCommand } from "./reactions.js";
 import { recentCommand } from "./recent.js";
 import { resetCommand } from "./reset.js";
 import { rewardsCommand } from "./rewards.js";
+import { winsCommand } from "./wins.js";
 import { xpCommand } from "./xp.js";
 
 export const commands: readonly BotCommand[] = [
@@ -26,6 +27,7 @@ export const commands: readonly BotCommand[] = [
   reactionCommand,
   resetCommand,
   rewardsCommand,
+  winsCommand,
   xpCommand,
 ];
 

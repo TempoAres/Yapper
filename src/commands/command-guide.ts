@@ -18,6 +18,10 @@ const commandGroups = [
     commands: "/top weekly, /top monthly, /top yearly",
   },
   {
+    name: "Leaderboard wins",
+    commands: "/wins weekly, /wins monthly, /wins yearly",
+  },
+  {
     name: "Reaction leaderboards",
     commands: "/react received, /react given",
   },

@@ -11,6 +11,7 @@ import type { CommandContext } from "../commands/command.js";
 import { handleLeaderboardButton } from "../commands/leaderboard.js";
 import { handleReactionLeaderboardButton } from "../commands/reactions.js";
 import { handleEmojiLeaderboardButton } from "../commands/emojis.js";
+import { handleWinLeaderboardButton } from "../commands/wins.js";
 import type { BotConfig } from "../config/environment.js";
 import type { MessageXpTracker } from "../services/xp/message-xp-tracker.js";
 import type { ReactionTracker } from "../services/reactions/reaction-tracker.js";
@@ -57,6 +58,10 @@ export async function startBot(
         }
 
         if (await handleLeaderboardButton(interaction, context)) {
+          return;
+        }
+
+        if (await handleWinLeaderboardButton(interaction, context)) {
           return;
         }
 

@@ -37,6 +37,24 @@ export interface LeaderboardResetSchedule {
   yearly: Date;
 }
 
+export interface LeaderboardWinEntry {
+  rank: number;
+  userId: string;
+  wins: number;
+}
+
+export interface LeaderboardWinPage {
+  scope: LeaderboardRecordScope;
+  page: number;
+  pageSize: typeof LEADERBOARD_PAGE_SIZE;
+  totalPages: number;
+  participantCount: number;
+  visibleEntryCount: number;
+  entries: readonly LeaderboardWinEntry[];
+  timezone: string;
+  generatedAt: Date;
+}
+
 /** Query contract for paginated, guild-specific leaderboards. */
 export interface LeaderboardService {
   getPage(input: {
@@ -57,4 +75,11 @@ export interface LeaderboardService {
     guildId: string;
     now: Date;
   }): Promise<LeaderboardResetSchedule>;
+
+  getWinPage(input: {
+    guildId: string;
+    scope: LeaderboardRecordScope;
+    page: number;
+    now: Date;
+  }): Promise<LeaderboardWinPage>;
 }
