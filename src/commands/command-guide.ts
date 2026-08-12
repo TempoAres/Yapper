@@ -10,16 +10,16 @@ import { yapperColors } from "../presentation/colors.js";
 const commandGroups = [
   {
     name: "Level leaderboard",
-    commands: "/lb all, /lb weekly, /lb monthly, /lb yearly",
+    commands: "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly",
   },
   { name: "XP leaderboard", commands: "/xplb" },
   {
     name: "Activity records",
-    commands: "/top weekly, /top monthly, /top yearly",
+    commands: "/top daily, /top weekly, /top monthly, /top yearly",
   },
   {
     name: "Leaderboard wins",
-    commands: "/wins weekly, /wins monthly, /wins yearly",
+    commands: "/wins daily, /wins weekly, /wins monthly, /wins yearly",
   },
   {
     name: "Reaction leaderboards",
@@ -27,7 +27,8 @@ const commandGroups = [
   },
   {
     name: "Emoji leaderboards",
-    commands: "/emoji all, /emoji weekly, /emoji monthly, /emoji yearly",
+    commands:
+      "/emoji all, /emoji daily, /emoji weekly, /emoji monthly, /emoji yearly",
   },
   { name: "Leaderboard resets", commands: "/reset info" },
   {

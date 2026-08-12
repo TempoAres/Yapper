@@ -165,13 +165,13 @@ describe("emoji leaderboard presentation", () => {
     assert.equal(parseEmojiButton("yapper:emoji:invalid"), null);
   });
 
-  it("publishes /emoji all|weekly|monthly|yearly with optional pages", () => {
+  it("publishes /emoji all|daily|weekly|monthly|yearly with optional pages", () => {
     const json = emojiCommand.data.toJSON();
 
     assert.equal(json.name, "emoji");
     assert.deepEqual(
       json.options?.map((option) => option.name),
-      ["all", "weekly", "monthly", "yearly"],
+      ["all", "daily", "weekly", "monthly", "yearly"],
     );
     for (const option of json.options ?? []) {
       assert.ok("options" in option);

@@ -93,13 +93,13 @@ describe("leaderboard wins", () => {
     assert.equal(parseWinButton("yapper:wins:next:all:2:user"), null);
   });
 
-  it("publishes only weekly, monthly, and yearly subcommands", () => {
+  it("publishes daily, weekly, monthly, and yearly subcommands", () => {
     const json = winsCommand.data.toJSON();
 
     assert.equal(json.name, "wins");
     assert.deepEqual(
       json.options?.map((option) => option.name),
-      ["weekly", "monthly", "yearly"],
+      ["daily", "weekly", "monthly", "yearly"],
     );
     for (const option of json.options ?? []) {
       assert.ok("options" in option);
@@ -170,5 +170,43 @@ describe("leaderboard wins", () => {
     assert.equal(queries[2]?.parameters[1], "2026-08-10");
     assert.match(queries[3]?.sql ?? "", /ORDER BY wins DESC, user_id ASC/);
     assert.match(queries[3]?.sql ?? "", /average_winning_xp/);
+  });
+
+  it("groups daily wins by XP date and excludes today", async () => {
+    const queries: Array<{ sql: string; parameters: readonly unknown[] }> = [];
+    const pool = {
+      query: async (sql: string, parameters: readonly unknown[] = []) => {
+        queries.push({ sql, parameters });
+
+        switch (queries.length) {
+          case 1:
+            return { rows: [] };
+          case 2:
+            return {
+              rows: [{
+                timezone: "Europe/Berlin",
+                launched_at: new Date("2026-08-05T00:00:00.000Z"),
+              }],
+            };
+          case 3:
+            return { rows: [{ count: "0" }] };
+          case 4:
+            return { rows: [] };
+          default:
+            throw new Error("Unexpected database query.");
+        }
+      },
+    } as unknown as Pool;
+    const service = new PostgresLeaderboardService(pool, "Europe/Berlin");
+
+    await service.getWinPage({
+      guildId: "939811280657719327",
+      scope: "daily",
+      page: 1,
+      now: new Date("2026-08-12T08:00:00.000Z"),
+    });
+
+    assert.match(queries[2]?.sql ?? "", /xp_date AS period_start/);
+    assert.equal(queries[2]?.parameters[1], "2026-08-12");
   });
 });

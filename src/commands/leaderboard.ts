@@ -36,12 +36,14 @@ type LeaderboardView = "level" | "record" | "xp";
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
+  daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
 };
 
 const scopeNouns: Record<LeaderboardRecordScope, string> = {
+  daily: "day",
   weekly: "week",
   monthly: "month",
   yearly: "year",
@@ -132,7 +134,7 @@ export interface LeaderboardButtonRequest {
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp):(all|daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
@@ -358,6 +360,7 @@ function configureLeaderboardSubcommand(
 ): SlashCommandSubcommandBuilder {
   const descriptions: Record<LeaderboardScope, string> = {
     all: "Show current all-time levels and progress.",
+    daily: "Show levels and XP gained today.",
     weekly: "Show levels and XP gained this week.",
     monthly: "Show levels and XP gained this month.",
     yearly: "Show levels and XP gained this year.",
@@ -397,6 +400,9 @@ export const leaderboardCommand: BotCommand = {
     .setDescription("Show the server level leaderboard.")
     .addSubcommand((subcommand) =>
       configureLeaderboardSubcommand(subcommand, "all"),
+    )
+    .addSubcommand((subcommand) =>
+      configureLeaderboardSubcommand(subcommand, "daily"),
     )
     .addSubcommand((subcommand) =>
       configureLeaderboardSubcommand(subcommand, "weekly"),
@@ -483,6 +489,9 @@ export const topCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("top")
     .setDescription("Show the highest historical activity records.")
+    .addSubcommand((subcommand) =>
+      configureRecordSubcommand(subcommand, "daily"),
+    )
     .addSubcommand((subcommand) =>
       configureRecordSubcommand(subcommand, "weekly"),
     )

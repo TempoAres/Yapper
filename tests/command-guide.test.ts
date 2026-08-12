@@ -32,8 +32,10 @@ describe("command guide", () => {
       ],
     );
     assert.match(json.fields?.[0]?.value ?? "", /`\/lb all`/);
+    assert.match(json.fields?.[0]?.value ?? "", /`\/lb daily`/);
     assert.match(json.fields?.[1]?.value ?? "", /`\/xplb`/);
     assert.match(json.fields?.[3]?.value ?? "", /`\/wins weekly`/);
+    assert.match(json.fields?.[3]?.value ?? "", /`\/wins daily`/);
     assert.match(json.fields?.[6]?.value ?? "", /`\/reset info`/);
     assert.match(json.fields?.[7]?.value ?? "", /`\/reminder set`/);
     const other = json.fields?.find((field) => field.name === "Other");

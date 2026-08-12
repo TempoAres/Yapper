@@ -22,16 +22,16 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
 - In-memory duplicate/low-effort filtering without persisting message content.
-- `/lb all|weekly|monthly|yearly` level leaderboards with optional pages.
+- `/lb all|daily|weekly|monthly|yearly` level leaderboards with optional pages.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
-- `/top weekly|monthly|yearly` for each member's best historical activity period.
-- `/wins weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
+- `/top daily|weekly|monthly|yearly` for each member's best historical activity period.
+- `/wins daily|weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
-- `/emoji all|weekly|monthly|yearly` message-emoji leaderboards with Top Users
+- `/emoji all|daily|weekly|monthly|yearly` message-emoji leaderboards with Top Users
   and Top Emojis views.
 - Arcane-style image leaderboards with avatars, one compact row per member,
   rank colors, progress bars, and requester-bound Top 100 pagination.
-- Europe/Berlin calendar boundaries for weekly, monthly, and yearly periods.
+- Europe/Berlin calendar boundaries for daily, weekly, monthly, and yearly periods.
 - `/reset info` with timezone-aware Discord countdowns for every period reset.
 - `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
@@ -201,17 +201,18 @@ Press `Ctrl+C` to stop the bot.
 
 ## Leaderboards
 
-`/lb` provides separate all-time, weekly, monthly, and yearly subcommands:
+`/lb` provides separate all-time, daily, weekly, monthly, and yearly subcommands:
 
 ```text
 /lb all
+/lb daily
 /lb weekly
 /lb monthly
 /lb yearly
 ```
 
 Every subcommand accepts an optional `page` from 1 to 10. The all-time board
-shows each member's current level and progress. Weekly, monthly, and yearly
+shows each member's current level and progress. Daily, weekly, monthly, and yearly
 boards show the levels and XP gained during the selected period.
 
 `/xplb` shows the separate all-time XP leaderboard. It accepts an optional
@@ -220,15 +221,17 @@ boards show the levels and XP gained during the selected period.
 Historical records rank every member by their personal best period so far:
 
 ```text
+/top daily
 /top weekly
 /top monthly
 /top yearly
 ```
 
 Leaderboard wins count how many completed XP periods each member finished in
-first place, with weekly, monthly, and yearly wins kept separate:
+first place, with daily, weekly, monthly, and yearly wins kept separate:
 
 ```text
+/wins daily
 /wins weekly
 /wins monthly
 /wins yearly
@@ -247,19 +250,19 @@ to the person who opened the board so another member cannot unexpectedly change
 the displayed page.
 
 Total XP includes the existing MEE6 import plus XP earned through Yapper.
-Weekly, monthly, and yearly boards use timestamped Yapper daily totals only.
-Weeks begin Monday at 00:00, months on the first day at 00:00, and years on
-January 1 at 00:00 in the
+Daily, weekly, monthly, and yearly boards use timestamped Yapper daily totals
+only. Days reset at 00:00, weeks begin Monday at 00:00, months on the first day
+at 00:00, and years on January 1 at 00:00 in the
 server's configured timezone. Yapper's first partial period starts at bot
 launch because historical period activity cannot be reconstructed from MEE6
 all-time XP.
 
 Current-period embeds show the complete calendar window, such as Monday through
 Sunday, while their XP total includes only activity recorded so far in that
-window. `/reset info` shows the next weekly, monthly, and yearly boundaries as
-Discord timestamps. Discord counts them down automatically; after a boundary
-passes, running the command again calculates the following reset. All-time and
-historical-record leaderboards do not reset.
+window. `/reset info` shows the next daily, weekly, monthly, and yearly
+boundaries as Discord timestamps. Discord counts them down automatically; after
+a boundary passes, running the command again calculates the following reset.
+All-time and historical-record leaderboards do not reset.
 
 ## Timestamps and reminders
 
@@ -293,10 +296,11 @@ removes it from the totals.
 
 ## Message emoji leaderboards
 
-`/emoji all`, `/emoji weekly`, `/emoji monthly`, and `/emoji yearly` open an
-Arcane-style image leaderboard. **Top Users** ranks members by total emoji
-occurrences in new messages, while **Top Emojis** ranks the emoji themselves.
-Buttons switch between both views and paginate through the Top 100.
+`/emoji all`, `/emoji daily`, `/emoji weekly`, `/emoji monthly`, and
+`/emoji yearly` open an Arcane-style image leaderboard. **Top Users** ranks
+members by total emoji occurrences in new messages, while **Top Emojis** ranks
+the emoji themselves. Buttons switch between both views and paginate through
+the Top 100.
 
 Tracking begins only when this feature is deployed; Yapper does not scan old
 messages. Every Unicode emoji grapheme and every occurrence of a Bluddington
@@ -329,7 +333,7 @@ protected internally. Applied changes store an audit record containing the targe
 moderator, operation, requested amount, before/after balances, interaction ID,
 channel, timestamp, and optional reason. XP cannot be removed below zero.
 
-Moderator corrections intentionally do not change weekly, monthly, or yearly
+Moderator corrections intentionally do not change daily, weekly, monthly, or yearly
 activity boards; those remain a record of timestamped earning activity.
 
 ## Stackable XP roles

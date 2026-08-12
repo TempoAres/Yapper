@@ -90,6 +90,20 @@ describe("leaderboard presentation", () => {
     assert.ok(!("progress" in (rows[0] ?? {})));
   });
 
+  it("renders daily activity for one Berlin calendar day", async () => {
+    const page = examplePage({
+      scope: "daily",
+      periodStart: "2026-08-12",
+      periodEnd: "2026-08-12",
+    });
+    const response = await buildLeaderboardResponse(page, requesterId);
+    const embed = response.embeds?.[0];
+
+    assert.ok(embed && "toJSON" in embed);
+    assert.equal(embed.toJSON().title, "Daily Level Leaderboard");
+    assert.equal(embed.toJSON().description, "12 Aug 2026");
+  });
+
   it("renders the standalone all-time XP leaderboard", async () => {
     const page = examplePage({
       scope: "all",
@@ -204,7 +218,7 @@ describe("leaderboard presentation", () => {
     assert.equal(parseLeaderboardButton("some-other-button"), null);
   });
 
-  it("publishes /lb with four period subcommands and optional pages", () => {
+  it("publishes daily alongside the existing leaderboard periods", () => {
     const leaderboard = leaderboardCommand.data.toJSON();
     const top = topCommand.data.toJSON();
     const xpLeaderboard = xpLeaderboardCommand.data.toJSON();
@@ -212,7 +226,7 @@ describe("leaderboard presentation", () => {
     assert.equal(leaderboard.name, "lb");
     assert.deepEqual(
       leaderboard.options?.map((option) => option.name),
-      ["all", "weekly", "monthly", "yearly"],
+      ["all", "daily", "weekly", "monthly", "yearly"],
     );
     assert.ok(
       !leaderboard.options?.some((option) => option.name === "xp"),
@@ -224,7 +238,7 @@ describe("leaderboard presentation", () => {
     assert.equal(top.name, "top");
     assert.deepEqual(
       top.options?.map((option) => option.name),
-      ["weekly", "monthly", "yearly"],
+      ["daily", "weekly", "monthly", "yearly"],
     );
     assert.equal(xpLeaderboard.name, "xplb");
     assert.deepEqual(
