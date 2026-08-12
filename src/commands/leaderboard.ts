@@ -64,6 +64,59 @@ function formatDateRange(start: string, end: string): string {
     : `${formattedStart} – ${formattedEnd}`;
 }
 
+interface CompactDate {
+  day: number;
+  month: number;
+  year: number;
+}
+
+function parseCompactDate(date: string): CompactDate {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+  if (!match) {
+    throw new Error(`Invalid leaderboard date: ${date}`);
+  }
+
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+  };
+}
+
+function compactMonth(date: CompactDate): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(date.year, date.month - 1, 1)));
+}
+
+function compactYear(year: number): string {
+  return String(year % 100).padStart(2, "0");
+}
+
+function formatCompactDateRange(start: string, end: string): string {
+  const startDate = parseCompactDate(start);
+  const endDate = parseCompactDate(end);
+
+  if (start === end) {
+    return `${startDate.day}. ${compactMonth(startDate)} ${compactYear(startDate.year)}`;
+  }
+
+  if (
+    startDate.year === endDate.year &&
+    startDate.month === endDate.month
+  ) {
+    return `${startDate.day}.–${endDate.day}. ${compactMonth(endDate)} ${compactYear(endDate.year)}`;
+  }
+
+  if (startDate.year === endDate.year) {
+    return `${startDate.day}. ${compactMonth(startDate)}–${endDate.day}. ${compactMonth(endDate)} ${compactYear(endDate.year)}`;
+  }
+
+  return `${startDate.day}. ${compactMonth(startDate)} ${compactYear(startDate.year)}–${endDate.day}. ${compactMonth(endDate)} ${compactYear(endDate.year)}`;
+}
+
 function createContextLine(page: LeaderboardPage): string | null {
   if (
     page.kind === "record" ||
@@ -90,7 +143,7 @@ export function createLeaderboardImageRows(
       return {
         rank: entry.rank,
         userId: entry.userId,
-        detail: `${formatXp(entry.xp)} XP • ${formatDateRange(entry.recordStart, entry.recordEnd)}`,
+        detail: `${formatXp(entry.xp)} XP • ${formatCompactDateRange(entry.recordStart, entry.recordEnd)}`,
       };
     }
 

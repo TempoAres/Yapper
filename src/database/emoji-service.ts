@@ -268,9 +268,9 @@ export class PostgresEmojiService implements EmojiService {
     const offset = (page - 1) * EMOJI_LEADERBOARD_PAGE_SIZE;
     const rows = await this.pool.query<LeaderboardRow>(
       `
-        SELECT leaderboard_key, total::text
+        SELECT leaderboard_key, totals.total::text AS total
         FROM (${totalsQuery}) AS totals
-        ORDER BY total DESC, leaderboard_key ASC
+        ORDER BY totals.total DESC, leaderboard_key ASC
         LIMIT $${parameters.length + 1}
         OFFSET $${parameters.length + 2}
       `,
