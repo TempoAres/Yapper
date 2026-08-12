@@ -6,10 +6,14 @@ import {
   type LeaderboardEntry,
   type LeaderboardPage,
   type LeaderboardRecordScope,
+  type LeaderboardResetSchedule,
   type LeaderboardScope,
   type LeaderboardService,
 } from "../services/leaderboards/leaderboard-service.js";
-import { calculateLeaderboardPeriod } from "../services/leaderboards/leaderboard-period.js";
+import {
+  calculateLeaderboardPeriod,
+  calculateLeaderboardResetSchedule,
+} from "../services/leaderboards/leaderboard-period.js";
 
 interface GuildSettingsRow {
   timezone: string;
@@ -303,10 +307,22 @@ export class PostgresLeaderboardService implements LeaderboardService {
       page: input.page,
       totals,
       timezone: settings.timezone,
-      periodStart: period.startDate,
-      periodEnd: period.endDate,
+      periodStart: period.displayStartDate,
+      periodEnd: period.displayEndDate,
       launchLimited: period.launchLimited,
       now: input.now,
+    });
+  }
+
+  public async getResetSchedule(input: {
+    guildId: string;
+    now: Date;
+  }): Promise<LeaderboardResetSchedule> {
+    const settings = await this.loadGuildSettings(input.guildId);
+
+    return calculateLeaderboardResetSchedule({
+      now: input.now,
+      timezone: settings.timezone,
     });
   }
 

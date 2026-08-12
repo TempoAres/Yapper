@@ -30,6 +30,13 @@ export interface LeaderboardPage {
   generatedAt: Date;
 }
 
+export interface LeaderboardResetSchedule {
+  timezone: string;
+  weekly: Date;
+  monthly: Date;
+  yearly: Date;
+}
+
 /** Query contract for paginated, guild-specific leaderboards. */
 export interface LeaderboardService {
   getPage(input: {
@@ -45,4 +52,9 @@ export interface LeaderboardService {
     page: number;
     now: Date;
   }): Promise<LeaderboardPage>;
+
+  getResetSchedule(input: {
+    guildId: string;
+    now: Date;
+  }): Promise<LeaderboardResetSchedule>;
 }

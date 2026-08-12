@@ -25,6 +25,7 @@ const commandGroups = [
     name: "Emoji leaderboards",
     commands: "/emoji all, /emoji weekly, /emoji monthly, /emoji yearly",
   },
+  { name: "Leaderboard resets", commands: "/reset info" },
   { name: "Personal progress", commands: "/rank, /xp info" },
   { name: "Level rewards", commands: "/rewards" },
   { name: "Other", commands: "/ping, /cmd, ?g <query>" },
