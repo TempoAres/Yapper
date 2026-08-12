@@ -1,4 +1,9 @@
-export type LeaderboardScope = "all" | "weekly" | "monthly" | "yearly";
+export type LeaderboardScope =
+  | "all"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "yearly";
 export type LeaderboardRecordScope = Exclude<LeaderboardScope, "all">;
 export type LeaderboardKind = "current" | "record";
 
@@ -32,6 +37,7 @@ export interface LeaderboardPage {
 
 export interface LeaderboardResetSchedule {
   timezone: string;
+  daily: Date;
   weekly: Date;
   monthly: Date;
   yearly: Date;

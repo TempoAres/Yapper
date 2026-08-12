@@ -150,6 +150,10 @@ function naturalPeriod(scope: Exclude<LeaderboardScope, "all">, today: LocalDate
   start: LocalDateParts;
   end: LocalDateParts;
 } {
+  if (scope === "daily") {
+    return { start: today, end: today };
+  }
+
   if (scope === "weekly") {
     const start = startOfWeek(today);
     return { start, end: addDays(start, 6) };
@@ -176,6 +180,7 @@ export function calculateLeaderboardResetSchedule(input: {
 
   return {
     timezone: input.timezone,
+    daily: resetFor("daily"),
     weekly: resetFor("weekly"),
     monthly: resetFor("monthly"),
     yearly: resetFor("yearly"),

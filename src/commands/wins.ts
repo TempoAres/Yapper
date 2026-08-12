@@ -28,6 +28,7 @@ const buttonPrefix = "yapper:wins";
 type WinButtonAction = "first" | "previous" | "next" | "last";
 
 const scopeLabels: Record<LeaderboardRecordScope, string> = {
+  daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
@@ -71,7 +72,7 @@ export interface WinButtonRequest {
 }
 
 export function parseWinButton(customId: string): WinButtonRequest | null {
-  const match = /^yapper:wins:(first|previous|next|last):(weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:wins:(first|previous|next|last):(daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
@@ -263,6 +264,9 @@ export const winsCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("wins")
     .setDescription("Show completed XP leaderboard wins.")
+    .addSubcommand((subcommand) =>
+      configureWinSubcommand(subcommand, "daily"),
+    )
     .addSubcommand((subcommand) =>
       configureWinSubcommand(subcommand, "weekly"),
     )

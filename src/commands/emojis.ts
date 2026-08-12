@@ -41,6 +41,7 @@ type EmojiButtonAction =
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
+  daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
@@ -77,7 +78,7 @@ export interface EmojiButtonRequest {
 }
 
 export function parseEmojiButton(customId: string): EmojiButtonRequest | null {
-  const match = /^yapper:emoji:(users|emojis|first|previous|next|last):(users|emojis):(all|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:emoji:(users|emojis|first|previous|next|last):(users|emojis):(all|daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
     customId,
   );
 
@@ -381,6 +382,9 @@ export const emojiCommand: BotCommand = {
     .setName("emoji")
     .setDescription("Show message emoji usage leaderboards.")
     .addSubcommand((subcommand) => configureScopeSubcommand(subcommand, "all"))
+    .addSubcommand((subcommand) =>
+      configureScopeSubcommand(subcommand, "daily"),
+    )
     .addSubcommand((subcommand) =>
       configureScopeSubcommand(subcommand, "weekly"),
     )

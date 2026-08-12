@@ -45,6 +45,35 @@ describe("calculateLeaderboardPeriod", () => {
     );
   });
 
+  it("uses the current Berlin calendar day for the daily board", () => {
+    assert.deepEqual(
+      calculateLeaderboardPeriod({
+        scope: "daily",
+        now: new Date("2026-08-12T21:59:59.000Z"),
+        timezone: "Europe/Berlin",
+        launchedAt: new Date("2026-01-01T00:00:00.000Z"),
+      }),
+      {
+        startDate: "2026-08-12",
+        endDate: "2026-08-12",
+        displayStartDate: "2026-08-12",
+        displayEndDate: "2026-08-12",
+        nextResetAt: new Date("2026-08-12T22:00:00.000Z"),
+        launchLimited: false,
+      },
+    );
+
+    assert.equal(
+      calculateLeaderboardPeriod({
+        scope: "daily",
+        now: new Date("2026-08-12T22:00:00.000Z"),
+        timezone: "Europe/Berlin",
+        launchedAt: new Date("2026-01-01T00:00:00.000Z"),
+      }).startDate,
+      "2026-08-13",
+    );
+  });
+
   it("clips the first period to Yapper's local launch date", () => {
     assert.deepEqual(
       calculateLeaderboardPeriod({
@@ -143,6 +172,7 @@ describe("calculateLeaderboardPeriod", () => {
       timezone: "Europe/Berlin",
     });
 
+    assert.equal(schedule.daily.toISOString(), "2026-08-12T22:00:00.000Z");
     assert.equal(schedule.weekly.toISOString(), "2026-08-16T22:00:00.000Z");
     assert.equal(schedule.monthly.toISOString(), "2026-08-31T22:00:00.000Z");
     assert.equal(schedule.yearly.toISOString(), "2026-12-31T23:00:00.000Z");

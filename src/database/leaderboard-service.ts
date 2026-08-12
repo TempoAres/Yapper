@@ -123,6 +123,8 @@ function buildCurrentTotalsQuery(
 
 function periodStartExpression(scope: LeaderboardRecordScope): string {
   switch (scope) {
+    case "daily":
+      return "xp_date";
     case "weekly":
       return "(xp_date - (EXTRACT(ISODOW FROM xp_date)::integer - 1))::date";
     case "monthly":
@@ -134,6 +136,8 @@ function periodStartExpression(scope: LeaderboardRecordScope): string {
 
 function periodEndExpression(scope: LeaderboardRecordScope): string {
   switch (scope) {
+    case "daily":
+      return "best_periods.record_start";
     case "weekly":
       return "(best_periods.record_start + 6)::date";
     case "monthly":

@@ -29,6 +29,7 @@ export function buildResetInfoResponse(
           `Timezone: **${schedule.timezone}**\nDiscord updates the relative countdowns automatically. Run \`/reset info\` again after a reset to show the following one.`,
         )
         .addFields(
+          { name: "Daily", value: resetValue(schedule.daily) },
           { name: "Weekly", value: resetValue(schedule.weekly) },
           { name: "Monthly", value: resetValue(schedule.monthly) },
           { name: "Yearly", value: resetValue(schedule.yearly) },
@@ -47,7 +48,9 @@ export const resetCommand: BotCommand = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("info")
-        .setDescription("Show the next weekly, monthly, and yearly resets."),
+        .setDescription(
+          "Show the next daily, weekly, monthly, and yearly resets.",
+        ),
     ),
   async execute(interaction, context) {
     if (!interaction.guildId) {
