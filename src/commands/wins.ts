@@ -33,8 +33,25 @@ const scopeLabels: Record<LeaderboardRecordScope, string> = {
   yearly: "Yearly",
 };
 
-function formatWins(wins: number): string {
-  return `${new Intl.NumberFormat("en-US").format(wins)} ${wins === 1 ? "win" : "wins"}`;
+function formatAverageXp(xp: number): string {
+  const units = [
+    { threshold: 1_000_000_000, suffix: "B" },
+    { threshold: 1_000_000, suffix: "M" },
+    { threshold: 1_000, suffix: "k" },
+  ] as const;
+  const unit = units.find(({ threshold }) => xp >= threshold);
+
+  if (unit) {
+    return `${(xp / unit.threshold).toFixed(1)}${unit.suffix}`;
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format(xp);
+}
+
+function formatWinDetails(wins: number, averageWinningXp: number): string {
+  return `Wins: ${new Intl.NumberFormat("en-US").format(wins)} • ${formatAverageXp(averageWinningXp)} XP Avg.`;
 }
 
 function createButtonCustomId(
@@ -82,7 +99,7 @@ export function createWinLeaderboardImageRows(
   return page.entries.map((entry) => ({
     rank: entry.rank,
     userId: entry.userId,
-    detail: formatWins(entry.wins),
+    detail: formatWinDetails(entry.wins, entry.averageWinningXp),
   }));
 }
 
@@ -154,7 +171,7 @@ export async function buildWinLeaderboardResponse(
   const embed = new EmbedBuilder()
     .setColor(yapperColors.blue)
     .setTitle(`${scopeLabels[page.scope]} Leaderboard Wins`)
-    .setDescription(`Completed ${page.scope} XP leaderboards • ${page.timezone}`)
+    .setDescription(`Completed ${page.scope} XP leaderboards`)
     .setImage(`attachment://${fileName}`)
     .setFooter({
       text: `Page ${page.page}/${page.totalPages} • Top ${page.visibleEntryCount} of ${page.participantCount} • Completed periods only`,

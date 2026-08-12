@@ -84,7 +84,7 @@ describe("leaderboard presentation", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Level Leaderboard");
-    assert.equal(json.description, "3–9 Aug 2026 • Europe/Berlin");
+    assert.equal(json.description, "3–9 Aug 2026");
     assert.equal(rows[0]?.detail, "LVL: +0 XP: +5,073");
     assert.equal(rows[1]?.detail, "LVL: +2 XP: +950");
     assert.ok(!("progress" in (rows[0] ?? {})));

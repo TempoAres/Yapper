@@ -25,8 +25,18 @@ function examplePage(
     participantCount: 12,
     visibleEntryCount: 12,
     entries: [
-      { rank: 1, userId: requesterId, wins: 4 },
-      { rank: 2, userId: "153452985728578777", wins: 1 },
+      {
+        rank: 1,
+        userId: requesterId,
+        wins: 2,
+        averageWinningXp: 15_000,
+      },
+      {
+        rank: 2,
+        userId: "153452985728578777",
+        wins: 1,
+        averageWinningXp: 950,
+      },
     ],
     timezone: "Europe/Berlin",
     generatedAt: new Date("2026-08-12T10:00:00.000Z"),
@@ -44,12 +54,9 @@ describe("leaderboard wins", () => {
     assert.ok(embed && "toJSON" in embed);
     const json = embed.toJSON();
     assert.equal(json.title, "Weekly Leaderboard Wins");
-    assert.equal(
-      json.description,
-      "Completed weekly XP leaderboards • Europe/Berlin",
-    );
-    assert.equal(rows[0]?.detail, "4 wins");
-    assert.equal(rows[1]?.detail, "1 win");
+    assert.equal(json.description, "Completed weekly XP leaderboards");
+    assert.equal(rows[0]?.detail, "Wins: 2 • 15.0k XP Avg.");
+    assert.equal(rows[1]?.detail, "Wins: 1 • 950 XP Avg.");
     assert.match(json.image?.url ?? "", /^attachment:\/\//);
     assert.equal(response.files?.length, 1);
   });
@@ -123,8 +130,16 @@ describe("leaderboard wins", () => {
           case 4:
             return {
               rows: [
-                { user_id: requesterId, wins: "4" },
-                { user_id: "153452985728578777", wins: "1" },
+                {
+                  user_id: requesterId,
+                  wins: "4",
+                  average_winning_xp: "15000.000000000000",
+                },
+                {
+                  user_id: "153452985728578777",
+                  wins: "1",
+                  average_winning_xp: "950.0000000000000000",
+                },
               ],
             };
           default:
@@ -145,10 +160,15 @@ describe("leaderboard wins", () => {
       page.entries.map((entry) => entry.wins),
       [4, 1],
     );
+    assert.deepEqual(
+      page.entries.map((entry) => entry.averageWinningXp),
+      [15_000, 950],
+    );
     assert.match(queries[2]?.sql ?? "", /period_start < \$2::date/);
     assert.match(queries[2]?.sql ?? "", /PARTITION BY period_start/);
     assert.match(queries[2]?.sql ?? "", /ORDER BY xp DESC, user_id ASC/);
     assert.equal(queries[2]?.parameters[1], "2026-08-10");
     assert.match(queries[3]?.sql ?? "", /ORDER BY wins DESC, user_id ASC/);
+    assert.match(queries[3]?.sql ?? "", /average_winning_xp/);
   });
 });

@@ -55,7 +55,7 @@ function createContextLine(page: EmojiLeaderboardPage): string | null {
     return null;
   }
 
-  return `${formatCalendarDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}`;
+  return formatCalendarDateRange(page.periodStart, page.periodEnd);
 }
 
 function createButtonCustomId(
