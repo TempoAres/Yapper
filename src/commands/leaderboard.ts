@@ -61,7 +61,7 @@ function createContextLine(page: LeaderboardPage): string | null {
     return null;
   }
 
-  return `${formatCalendarDateRange(page.periodStart, page.periodEnd)} • ${page.timezone}`;
+  return formatCalendarDateRange(page.periodStart, page.periodEnd);
 }
 
 export function createLeaderboardImageRows(

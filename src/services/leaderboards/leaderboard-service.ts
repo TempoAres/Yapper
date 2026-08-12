@@ -41,6 +41,7 @@ export interface LeaderboardWinEntry {
   rank: number;
   userId: string;
   wins: number;
+  averageWinningXp: number;
 }
 
 export interface LeaderboardWinPage {

@@ -37,6 +37,7 @@ interface EntryRow {
 interface WinEntryRow {
   user_id: string;
   wins: string;
+  average_winning_xp: string;
 }
 
 interface TotalsQuery {
@@ -48,6 +49,20 @@ function parseDatabaseInteger(value: string, label: string): number {
   const parsed = Number(value);
 
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new RangeError(`Database ${label} is outside JavaScript's safe range.`);
+  }
+
+  return parsed;
+}
+
+function parseDatabaseNumber(value: string, label: string): number {
+  const parsed = Number(value);
+
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < 0 ||
+    parsed > Number.MAX_SAFE_INTEGER
+  ) {
     throw new RangeError(`Database ${label} is outside JavaScript's safe range.`);
   }
 
@@ -205,13 +220,17 @@ function buildWinTotalsQuery(
         SELECT
           user_id,
           period_start,
+          xp,
           ROW_NUMBER() OVER (
             PARTITION BY period_start
             ORDER BY xp DESC, user_id ASC
           ) AS period_rank
         FROM period_totals
       )
-      SELECT user_id, COUNT(*)::bigint AS wins
+      SELECT
+        user_id,
+        COUNT(*)::bigint AS wins,
+        AVG(xp)::numeric AS average_winning_xp
       FROM period_rankings
       WHERE period_rank = 1
       GROUP BY user_id
@@ -431,7 +450,7 @@ export class PostgresLeaderboardService implements LeaderboardService {
     const entriesResult = await this.pool.query<WinEntryRow>(
       `
         WITH leaderboard_wins AS (${totals.sql})
-        SELECT user_id, wins
+        SELECT user_id, wins, average_winning_xp
         FROM leaderboard_wins
         ORDER BY wins DESC, user_id ASC
         LIMIT $3
@@ -448,6 +467,10 @@ export class PostgresLeaderboardService implements LeaderboardService {
         rank: offset + index + 1,
         userId: row.user_id,
         wins: parseDatabaseInteger(row.wins, "leaderboard wins"),
+        averageWinningXp: parseDatabaseNumber(
+          row.average_winning_xp,
+          "average winning XP",
+        ),
       }),
     );
 
