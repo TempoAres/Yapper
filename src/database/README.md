@@ -22,6 +22,7 @@ The migrations create:
 - `message_emoji_usage` (deduplicated per-message emoji counts)
 - `emoji_user_daily_totals` (period user rankings)
 - `emoji_usage_daily_totals` (period emoji rankings)
+- `leaderboard_announcement_deliveries` (restart-safe reset announcements)
 
 `xp_admin_audit` keeps moderator corrections separate from activity awards.
 It records before/after Yapper XP and a Discord interaction ID for auditability
@@ -42,3 +43,7 @@ The `reminders` table is the intentional content exception: it keeps user-writte
 reminder text plus delivery state so future pings survive process and VPS restarts.
 Daily user and emoji totals make all-time and calendar-period image
 leaderboards fast without retaining message text.
+
+Final daily, weekly, and yearly leaderboard announcements use a unique
+guild/scope/reset row. Delivery claims and Discord nonces prevent a restart or
+retry near midnight from posting the same final leaderboard twice.

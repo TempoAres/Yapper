@@ -12,17 +12,20 @@ import { PostgresRoleRewardService } from "./database/role-reward-service.js";
 import { PostgresReactionService } from "./database/reaction-service.js";
 import { PostgresEmojiService } from "./database/emoji-service.js";
 import { PostgresReminderService } from "./database/reminder-service.js";
+import { PostgresLeaderboardAnnouncementDeliveryService } from "./database/leaderboard-announcement-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
   loadHealthConfig,
+  loadLeaderboardAnnouncementConfig,
   loadLeaderboardConfig,
   loadMessageXpConfig,
 } from "./config/environment.js";
 import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
 import { ReactionTracker } from "./services/reactions/reaction-tracker.js";
 import { ReminderRunner } from "./services/reminders/reminder-runner.js";
+import { LeaderboardAnnouncementRunner } from "./services/leaderboards/leaderboard-announcement-runner.js";
 import {
   startHealthServer,
   stopHealthServer,
@@ -35,6 +38,7 @@ async function main(): Promise<void> {
   let client: Client | undefined;
   let healthServer: Server | undefined;
   let reminderRunner: ReminderRunner | undefined;
+  let leaderboardAnnouncementRunner: LeaderboardAnnouncementRunner | undefined;
 
   try {
     await runMigrations(pool);
@@ -50,6 +54,8 @@ async function main(): Promise<void> {
     const reactionService = new PostgresReactionService(pool);
     const emojiService = new PostgresEmojiService(pool);
     const reminderService = new PostgresReminderService(pool);
+    const leaderboardAnnouncementDeliveryService =
+      new PostgresLeaderboardAnnouncementDeliveryService(pool);
     const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
       roleRewardService,
       memberXpService,
@@ -77,6 +83,27 @@ async function main(): Promise<void> {
     );
     reminderRunner = new ReminderRunner(client, reminderService);
     reminderRunner.start();
+    const announcementChannelId =
+      loadLeaderboardAnnouncementConfig().channelId;
+
+    if (announcementChannelId) {
+      if (!botConfig.guildId) {
+        throw new Error(
+          "DISCORD_GUILD_ID is required when leaderboard announcements are enabled.",
+        );
+      }
+
+      leaderboardAnnouncementRunner = new LeaderboardAnnouncementRunner(
+        client,
+        leaderboardService,
+        leaderboardAnnouncementDeliveryService,
+        {
+          guildId: botConfig.guildId,
+          channelId: announcementChannelId,
+        },
+      );
+      leaderboardAnnouncementRunner.start();
+    }
     const healthPort = loadHealthConfig().port;
 
     if (healthPort !== undefined) {
@@ -97,7 +124,10 @@ async function main(): Promise<void> {
 
       isShuttingDown = true;
       console.log(`Received ${signal}; shutting Yapper down.`);
-      await reminderRunner?.stop();
+      await Promise.all([
+        reminderRunner?.stop(),
+        leaderboardAnnouncementRunner?.stop(),
+      ]);
       await stopHealthServer(healthServer);
       client?.destroy();
       await pool.end();
@@ -114,7 +144,10 @@ async function main(): Promise<void> {
     process.once("SIGINT", () => requestShutdown("SIGINT"));
     process.once("SIGTERM", () => requestShutdown("SIGTERM"));
   } catch (error) {
-    await reminderRunner?.stop();
+    await Promise.all([
+      reminderRunner?.stop(),
+      leaderboardAnnouncementRunner?.stop(),
+    ]);
     await stopHealthServer(healthServer);
     client?.destroy();
     await pool.end();
