@@ -33,6 +33,10 @@ export interface LeaderboardConfig {
   defaultTimezone: string;
 }
 
+export interface LeaderboardAnnouncementConfig {
+  channelId: string | undefined;
+}
+
 function readRequiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -175,4 +179,17 @@ export function loadLeaderboardConfig(): LeaderboardConfig {
   }
 
   return { defaultTimezone };
+}
+
+export function loadLeaderboardAnnouncementConfig(): LeaderboardAnnouncementConfig {
+  const channelId =
+    process.env.LEADERBOARD_ANNOUNCEMENT_CHANNEL_ID?.trim() || undefined;
+
+  if (channelId && !/^\d{17,20}$/.test(channelId)) {
+    throw new Error(
+      "LEADERBOARD_ANNOUNCEMENT_CHANNEL_ID must be a Discord channel ID.",
+    );
+  }
+
+  return { channelId };
 }

@@ -1,5 +1,6 @@
 import { loadDatabaseConfig } from "../src/config/environment.js";
 import { PostgresLeaderboardService } from "../src/database/leaderboard-service.js";
+import { PostgresLeaderboardAnnouncementDeliveryService } from "../src/database/leaderboard-announcement-service.js";
 import { PostgresMemberXpService } from "../src/database/member-xp-service.js";
 import { createDatabasePool } from "../src/database/pool.js";
 import { PostgresReactionService } from "../src/database/reaction-service.js";
@@ -211,6 +212,39 @@ async function verify(): Promise<void> {
         reminderId: futureReminder.id,
       }),
       "A pending reminder could not be cancelled.",
+    );
+
+    const announcementDeliveryService =
+      new PostgresLeaderboardAnnouncementDeliveryService(pool);
+    const announcement = {
+      guildId,
+      scope: "daily" as const,
+      resetAt: new Date("2026-08-12T22:00:00.000Z"),
+    };
+    requireCondition(
+      await announcementDeliveryService.claim({
+        ...announcement,
+        now: new Date("2026-08-12T21:59:15.000Z"),
+      }),
+      "The final leaderboard announcement could not be claimed.",
+    );
+    requireCondition(
+      !(await announcementDeliveryService.claim({
+        ...announcement,
+        now: new Date("2026-08-12T21:59:20.000Z"),
+      })),
+      "A final leaderboard announcement was claimed twice.",
+    );
+    await announcementDeliveryService.markDelivered({
+      ...announcement,
+      deliveredAt: new Date("2026-08-12T21:59:20.000Z"),
+    });
+    requireCondition(
+      !(await announcementDeliveryService.claim({
+        ...announcement,
+        now: new Date("2026-08-12T21:59:55.000Z"),
+      })),
+      "A delivered leaderboard announcement was reclaimed.",
     );
 
     console.log("Database integration verified successfully.");

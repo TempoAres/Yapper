@@ -33,6 +33,8 @@ simple architecture intended to be approachable for a first-time bot developer.
   rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries for daily, weekly, monthly, and yearly periods.
 - `/reset info` with timezone-aware Discord countdowns for every period reset.
+- Automatic final daily, weekly, and yearly leaderboards one minute before
+  their Europe/Berlin reset.
 - `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
@@ -263,6 +265,14 @@ window. `/reset info` shows the next daily, weekly, monthly, and yearly
 boundaries as Discord timestamps. Discord counts them down automatically; after
 a boundary passes, running the command again calculates the following reset.
 All-time and historical-record leaderboards do not reset.
+
+When `LEADERBOARD_ANNOUNCEMENT_CHANNEL_ID` is configured, Yapper posts the
+first page of the final daily leaderboard at 23:59 Europe/Berlin every night.
+It also posts the final weekly board at 23:59 on Sundays and the final yearly
+board at 23:59 on December 31. These image announcements contain no navigation
+buttons or pings. Persistent delivery state and a stable Discord nonce prevent
+duplicates if the bot restarts or retries during the final minute. Monthly
+announcements are not enabled.
 
 ## Timestamps and reminders
 
