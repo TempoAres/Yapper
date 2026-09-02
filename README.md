@@ -21,7 +21,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Tests for the custom XP curve, level boundaries, and progress bars.
 - Real message XP with configurable 15-40 XP awards and a 30-second cooldown.
 - Text, attachment-only, thread, forum, and voice-channel text-chat support.
-- In-memory duplicate/low-effort filtering without persisting message content.
+- In-memory duplicate/low-effort XP filtering without persisting message content
+  outside an explicitly active private journal.
 - `/lb all|daily|weekly|monthly|yearly` level leaderboards with optional pages.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
 - `/top daily|weekly|monthly|yearly` for each member's best historical activity period.
@@ -36,6 +37,9 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Automatic final daily, weekly, and yearly leaderboards one minute before
   their Europe/Berlin reset.
 - `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
+- An administrator-only `/journal` workflow that records one explicitly
+  configured user's messages for 24 hours, creates a private OpenAI summary,
+  DMs it only to that user, and deletes the temporary transcript afterward.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -294,6 +298,37 @@ time it pings only the reminder creator in the channel where the reminder was
 set. A member can keep up to ten pending reminders per server. Reminders survive
 bot and VPS restarts, and temporary Discord delivery failures are retried with
 increasing delays.
+
+## Private 24-hour journal
+
+The journal is deliberately limited to the single consented Discord user in
+`JOURNAL_USER_ID`. Only server administrators can run its commands:
+
+```text
+/journal start
+/journal status
+/journal summarize-now
+/journal cancel
+```
+
+`start` records new messages from that user in the current server for exactly
+24 hours. It stores message text plus channel and timestamp context, but it does
+not download attachment contents or expose remote attachment URLs. Attachments
+and stickers are represented by name. No older Discord messages are scanned.
+
+At the end of the window, Yapper sends the transcript to the OpenAI Responses
+API using the configured cost-efficient model and `store: false`. Large days
+are summarized in bounded chunks before a final summary is created. Transcript
+content is treated as untrusted data and cannot change the summarization
+instructions. The result is sent only to the configured user's DMs; long
+summaries arrive as a Markdown attachment.
+
+The session and delivery queue survive bot or VPS restarts. Temporary failures
+are retried with increasing delays. Once delivery succeeds, or an administrator
+runs `cancel`, the stored message text and any pending summary are deleted from
+the live database. Journal session/message data is excluded from Yapper's
+logical database backups. Completed session metadata remains so operators can
+diagnose delivery without retaining the private content.
 
 ## Reaction leaderboards
 

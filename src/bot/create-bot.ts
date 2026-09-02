@@ -16,6 +16,7 @@ import type { BotConfig } from "../config/environment.js";
 import type { MessageXpTracker } from "../services/xp/message-xp-tracker.js";
 import type { ReactionTracker } from "../services/reactions/reaction-tracker.js";
 import { registerGoogleSearchListener } from "./google-search-listener.js";
+import { registerJournalListener } from "./journal-listener.js";
 import { registerMessageXpListener } from "./message-xp-listener.js";
 import { registerMessageEmojiListener } from "./message-emoji-listener.js";
 import { registerReactionListener } from "./reaction-listener.js";
@@ -44,6 +45,13 @@ export async function startBot(
   );
   registerGoogleSearchListener(client);
   registerMessageEmojiListener(client, context.emojiService);
+  if (context.journalConfig.targetUserId) {
+    registerJournalListener(
+      client,
+      context.journalService,
+      context.journalConfig.targetUserId,
+    );
+  }
   registerReactionListener(client, reactionTracker);
 
   client.once(Events.ClientReady, (readyClient) => {

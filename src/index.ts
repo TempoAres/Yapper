@@ -13,11 +13,13 @@ import { PostgresReactionService } from "./database/reaction-service.js";
 import { PostgresEmojiService } from "./database/emoji-service.js";
 import { PostgresReminderService } from "./database/reminder-service.js";
 import { PostgresLeaderboardAnnouncementDeliveryService } from "./database/leaderboard-announcement-service.js";
+import { PostgresJournalService } from "./database/journal-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
   loadDatabaseConfig,
   loadHealthConfig,
+  loadJournalConfig,
   loadLeaderboardAnnouncementConfig,
   loadLeaderboardConfig,
   loadMessageXpConfig,
@@ -26,6 +28,8 @@ import { MessageXpTracker } from "./services/xp/message-xp-tracker.js";
 import { ReactionTracker } from "./services/reactions/reaction-tracker.js";
 import { ReminderRunner } from "./services/reminders/reminder-runner.js";
 import { LeaderboardAnnouncementRunner } from "./services/leaderboards/leaderboard-announcement-runner.js";
+import { JournalRunner } from "./services/journal/journal-runner.js";
+import { OpenAiJournalSummarizer } from "./services/journal/journal-summarizer.js";
 import {
   startHealthServer,
   stopHealthServer,
@@ -39,6 +43,7 @@ async function main(): Promise<void> {
   let healthServer: Server | undefined;
   let reminderRunner: ReminderRunner | undefined;
   let leaderboardAnnouncementRunner: LeaderboardAnnouncementRunner | undefined;
+  let journalRunner: JournalRunner | undefined;
 
   try {
     await runMigrations(pool);
@@ -54,6 +59,8 @@ async function main(): Promise<void> {
     const reactionService = new PostgresReactionService(pool);
     const emojiService = new PostgresEmojiService(pool);
     const reminderService = new PostgresReminderService(pool);
+    const journalService = new PostgresJournalService(pool);
+    const journalConfig = loadJournalConfig();
     const leaderboardAnnouncementDeliveryService =
       new PostgresLeaderboardAnnouncementDeliveryService(pool);
     const roleRewardCoordinator = new DiscordRoleRewardCoordinator(
@@ -77,12 +84,29 @@ async function main(): Promise<void> {
         reactionService,
         emojiService,
         reminderService,
+        journalService,
+        journalConfig: {
+          targetUserId: journalConfig.targetUserId,
+          summarizationConfigured: Boolean(journalConfig.openAiApiKey),
+        },
       },
       messageXpTracker,
       reactionTracker,
     );
     reminderRunner = new ReminderRunner(client, reminderService);
     reminderRunner.start();
+
+    if (journalConfig.targetUserId && journalConfig.openAiApiKey) {
+      journalRunner = new JournalRunner(
+        client,
+        journalService,
+        new OpenAiJournalSummarizer(
+          journalConfig.openAiApiKey,
+          journalConfig.openAiModel,
+        ),
+      );
+      journalRunner.start();
+    }
     const announcementChannelId =
       loadLeaderboardAnnouncementConfig().channelId;
 
@@ -127,6 +151,7 @@ async function main(): Promise<void> {
       await Promise.all([
         reminderRunner?.stop(),
         leaderboardAnnouncementRunner?.stop(),
+        journalRunner?.stop(),
       ]);
       await stopHealthServer(healthServer);
       client?.destroy();
@@ -147,6 +172,7 @@ async function main(): Promise<void> {
     await Promise.all([
       reminderRunner?.stop(),
       leaderboardAnnouncementRunner?.stop(),
+      journalRunner?.stop(),
     ]);
     await stopHealthServer(healthServer);
     client?.destroy();

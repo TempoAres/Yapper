@@ -46,6 +46,8 @@ create_backup() {
     --dbname "$POSTGRES_DB" \
     --format custom \
     --compress 6 \
+    --exclude-table-data personal_journal_sessions \
+    --exclude-table-data personal_journal_messages \
     --file "$temporary_file"; then
     rm -f "$temporary_file"
     return 1
