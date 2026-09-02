@@ -65,7 +65,7 @@ documentation before you accept it.
 
 ## 3. Create configuration and secrets
 
-The two real secrets never belong in Git or the Compose environment file:
+The real secrets never belong in Git or the Compose environment file:
 
 ```bash
 cp .env.production.example .env.production
@@ -87,6 +87,24 @@ Confirm the application ID is `1534529857285787771` and the bluddington server
 ID is `939811280657719327`. The remaining defaults are ready to use. Never put
 the Discord token in `.env.production`, a command, a screenshot, chat, or
 GitHub.
+
+The optional private journal also needs an OpenAI Platform API key. Create a
+project key for Yapper, make sure that API project has billing/credits, and put
+only the key value into its own secret file:
+
+```bash
+nano secrets/openai_api_key.txt
+chmod 600 secrets/openai_api_key.txt
+```
+
+Set `JOURNAL_USER_ID=939644859092992060` in `.env.production`. The production
+example already selects the cost-efficient `gpt-5.6-luna` model. Never paste
+the API key into `.env.production`, Discord, a shell command, a screenshot, or
+GitHub. The Compose stack mounts the file read-only at runtime.
+
+Journal session and message rows are deliberately excluded from Yapper's daily
+logical PostgreSQL backups so temporary private transcripts are not retained in
+the 14-day backup history.
 
 ## 4. Validate and start Yapper
 
@@ -111,7 +129,8 @@ Before starting a build that includes full-server role sync, enable **Server
 Members Intent** on Yapper's Discord Developer Portal **Bot** page. Passing the
 intent without enabling it causes Discord to reject the bot connection.
 
-Test `/ping`, `/rank`, `/lb`, `/rewards`, and `/react received` in
+Test `/ping`, `/rank`, `/lb`, `/rewards`, `/react received`, and
+`/journal status` in
 bluddington. Docker restarts Yapper
 after a crash or host reboot, while the bot handles termination signals and
 closes its Discord and PostgreSQL connections cleanly.

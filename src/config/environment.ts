@@ -37,6 +37,12 @@ export interface LeaderboardAnnouncementConfig {
   channelId: string | undefined;
 }
 
+export interface JournalConfig {
+  targetUserId: string | undefined;
+  openAiApiKey: string | undefined;
+  openAiModel: string;
+}
+
 function readRequiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -192,4 +198,18 @@ export function loadLeaderboardAnnouncementConfig(): LeaderboardAnnouncementConf
   }
 
   return { channelId };
+}
+
+export function loadJournalConfig(): JournalConfig {
+  const targetUserId = process.env.JOURNAL_USER_ID?.trim() || undefined;
+
+  if (targetUserId && !/^\d{17,20}$/.test(targetUserId)) {
+    throw new Error("JOURNAL_USER_ID must be a Discord user ID.");
+  }
+
+  return {
+    targetUserId,
+    openAiApiKey: readOptionalSecret("OPENAI_API_KEY"),
+    openAiModel: process.env.OPENAI_MODEL?.trim() || "gpt-5.6-luna",
+  };
 }
