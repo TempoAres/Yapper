@@ -47,10 +47,11 @@ async function main(): Promise<void> {
 
   try {
     await runMigrations(pool);
+    const leaderboardConfig = loadLeaderboardConfig();
     const memberXpService = new PostgresMemberXpService(pool);
     const leaderboardService = new PostgresLeaderboardService(
       pool,
-      loadLeaderboardConfig().defaultTimezone,
+      leaderboardConfig.defaultTimezone,
     );
     const xpService = new PostgresXpService(pool);
     const adminXpService = new PostgresAdminXpService(pool);
@@ -88,6 +89,7 @@ async function main(): Promise<void> {
         journalConfig: {
           targetUserId: journalConfig.targetUserId,
           summarizationConfigured: Boolean(journalConfig.openAiApiKey),
+          timezone: leaderboardConfig.defaultTimezone,
         },
       },
       messageXpTracker,

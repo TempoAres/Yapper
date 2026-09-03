@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   calculateLeaderboardPeriod,
   calculateLeaderboardResetSchedule,
+  nextLocalMidnight,
 } from "../src/services/leaderboards/leaderboard-period.js";
 
 describe("calculateLeaderboardPeriod", () => {
@@ -184,6 +185,35 @@ describe("calculateLeaderboardPeriod", () => {
     assert.equal(
       afterDstChange.weekly.toISOString(),
       "2026-10-25T23:00:00.000Z",
+    );
+  });
+});
+
+describe("nextLocalMidnight", () => {
+  it("returns the next Europe/Berlin midnight", () => {
+    assert.equal(
+      nextLocalMidnight(
+        new Date("2026-09-03T18:30:00.000Z"),
+        "Europe/Berlin",
+      ).toISOString(),
+      "2026-09-03T22:00:00.000Z",
+    );
+  });
+
+  it("keeps local midnight across daylight-saving transitions", () => {
+    assert.equal(
+      nextLocalMidnight(
+        new Date("2026-03-28T12:00:00.000Z"),
+        "Europe/Berlin",
+      ).toISOString(),
+      "2026-03-28T23:00:00.000Z",
+    );
+    assert.equal(
+      nextLocalMidnight(
+        new Date("2026-10-24T12:00:00.000Z"),
+        "Europe/Berlin",
+      ).toISOString(),
+      "2026-10-24T22:00:00.000Z",
     );
   });
 });

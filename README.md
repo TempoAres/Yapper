@@ -299,7 +299,7 @@ set. A member can keep up to ten pending reminders per server. Reminders survive
 bot and VPS restarts, and temporary Discord delivery failures are retried with
 increasing delays.
 
-## Private 24-hour journal
+## Private daily journal
 
 The journal is deliberately limited to the single consented Discord user in
 `JOURNAL_USER_ID`. Only server administrators can run its commands:
@@ -311,10 +311,15 @@ The journal is deliberately limited to the single consented Discord user in
 /journal cancel
 ```
 
-`start` records new messages from that user in the current server for exactly
-24 hours. It stores message text plus channel and timestamp context, but it does
-not download attachment contents or expose remote attachment URLs. Attachments
-and stickers are represented by name. No older Discord messages are scanned.
+`start` enables continuous daily recording. The first window runs until the
+next midnight in the configured `TIMEZONE`; every later window covers one local
+calendar day. A private summary is sent after each midnight until an
+administrator runs `cancel`. The next window is prepared before the previous
+one is summarized, so recording continues during API or DM delivery retries.
+
+Yapper stores message text plus channel and timestamp context, but it does not
+download attachment contents or expose remote attachment URLs. Attachments and
+stickers are represented by name. No older Discord messages are scanned.
 
 At the end of the window, Yapper sends the transcript to the OpenAI Responses
 API using the configured cost-efficient model and `store: false`. Large days
@@ -323,10 +328,12 @@ content is treated as untrusted data and cannot change the summarization
 instructions. The result is sent only to the configured user's DMs; long
 summaries arrive as a Markdown attachment.
 
-The session and delivery queue survive bot or VPS restarts. Temporary failures
-are retried with increasing delays. Once delivery succeeds, or an administrator
-runs `cancel`, the stored message text and any pending summary are deleted from
-the live database. Journal session/message data is excluded from Yapper's
+The recording schedule and delivery queue survive bot or VPS restarts.
+Temporary failures are retried with increasing delays. `summarize-now` closes
+the current partial window and starts another immediately, without disabling
+future midnight summaries. Once delivery succeeds, or an administrator runs
+`cancel`, the affected stored message text and any pending summary are deleted
+from the live database. Journal session/message data is excluded from Yapper's
 logical database backups. Completed session metadata remains so operators can
 diagnose delivery without retaining the private content.
 

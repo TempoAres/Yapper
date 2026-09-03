@@ -118,15 +118,45 @@ export class PostgresJournalService implements JournalService {
 
       const result = await client.query<JournalSessionRow>(
         `
-          INSERT INTO personal_journal_sessions (
-            guild_id,
-            user_id,
-            started_at,
-            ends_at,
-            next_attempt_at
+          WITH current_session AS (
+            INSERT INTO personal_journal_sessions (
+              guild_id,
+              user_id,
+              started_at,
+              ends_at,
+              next_attempt_at,
+              recurring
+            )
+            VALUES ($1, $2, $3, $4, $4, TRUE)
+            RETURNING *
+          ), future_session AS (
+            INSERT INTO personal_journal_sessions (
+              guild_id,
+              user_id,
+              started_at,
+              ends_at,
+              next_attempt_at,
+              recurring
+            )
+            SELECT
+              current_session.guild_id,
+              current_session.user_id,
+              current_session.ends_at,
+              (
+                current_session.ends_at AT TIME ZONE settings.timezone
+                + INTERVAL '1 day'
+              ) AT TIME ZONE settings.timezone,
+              (
+                current_session.ends_at AT TIME ZONE settings.timezone
+                + INTERVAL '1 day'
+              ) AT TIME ZONE settings.timezone,
+              TRUE
+            FROM current_session
+            JOIN guild_settings AS settings
+              ON settings.guild_id = current_session.guild_id
+            ON CONFLICT (guild_id, user_id, started_at) DO NOTHING
           )
-          VALUES ($1, $2, $3, $4, $4)
-          RETURNING
+          SELECT
             id::text,
             guild_id,
             user_id,
@@ -136,6 +166,7 @@ export class PostgresJournalService implements JournalService {
             summary_text,
             '0'::text AS message_count,
             delivery_attempts
+          FROM current_session
         `,
         [input.guildId, input.userId, input.startedAt, input.endsAt],
       );
@@ -165,6 +196,16 @@ export class PostgresJournalService implements JournalService {
          AND session.user_id = $2
          AND session.status IN ('active', 'summarizing', 'awaiting_delivery')
        GROUP BY session.id
+       ORDER BY
+         CASE
+           WHEN session.status = 'active'
+             AND session.started_at <= NOW()
+             AND session.ends_at > NOW()
+             THEN 0
+           WHEN session.status IN ('summarizing', 'awaiting_delivery') THEN 1
+           ELSE 2
+         END,
+         session.started_at DESC
        LIMIT 1`,
       [input.guildId, input.userId],
     );
@@ -178,19 +219,72 @@ export class PostgresJournalService implements JournalService {
     userId: string;
     now: Date;
   }): Promise<boolean> {
-    const result = await this.pool.query(
-      `
-        UPDATE personal_journal_sessions
-        SET ends_at = $3, next_attempt_at = $3
-        WHERE guild_id = $1
-          AND user_id = $2
-          AND status = 'active'
-          AND started_at < $3
-      `,
-      [input.guildId, input.userId, input.now],
-    );
+    const client = await this.pool.connect();
 
-    return (result.rowCount ?? 0) > 0;
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('journal:' || $1 || ':' || $2, 0))",
+        [input.guildId, input.userId],
+      );
+      const result = await client.query<{ original_ends_at: Date }>(
+        `
+          WITH current_session AS (
+            SELECT id, ends_at AS original_ends_at
+            FROM personal_journal_sessions
+            WHERE guild_id = $1
+              AND user_id = $2
+              AND status = 'active'
+              AND started_at < $3
+              AND ends_at > $3
+            ORDER BY started_at DESC
+            LIMIT 1
+            FOR UPDATE
+          ), updated AS (
+            UPDATE personal_journal_sessions AS session
+            SET
+              ends_at = $3,
+              next_attempt_at = $3,
+              recurring = FALSE
+            FROM current_session
+            WHERE session.id = current_session.id
+            RETURNING current_session.original_ends_at
+          )
+          SELECT original_ends_at
+          FROM updated
+        `,
+        [input.guildId, input.userId, input.now],
+      );
+      const row = result.rows[0];
+
+      if (!row) {
+        await client.query("COMMIT");
+        return false;
+      }
+
+      await client.query(
+        `
+          INSERT INTO personal_journal_sessions (
+            guild_id,
+            user_id,
+            started_at,
+            ends_at,
+            next_attempt_at,
+            recurring
+          )
+          VALUES ($1, $2, $3, $4, $4, TRUE)
+          ON CONFLICT (guild_id, user_id, started_at) DO NOTHING
+        `,
+        [input.guildId, input.userId, input.now, row.original_ends_at],
+      );
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   public async cancel(input: {
@@ -217,17 +311,17 @@ export class PostgresJournalService implements JournalService {
         `,
         [input.guildId, input.userId],
       );
-      const row = result.rows[0];
+      const sessionIds = result.rows.map((row) => row.id);
 
-      if (row) {
+      if (sessionIds.length > 0) {
         await client.query(
-          "DELETE FROM personal_journal_messages WHERE session_id = $1",
-          [row.id],
+          "DELETE FROM personal_journal_messages WHERE session_id = ANY($1::bigint[])",
+          [sessionIds],
         );
       }
 
       await client.query("COMMIT");
-      return Boolean(row);
+      return sessionIds.length > 0;
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -289,18 +383,18 @@ export class PostgresJournalService implements JournalService {
     const result = await this.pool.query<JournalSessionRow>(
       `
         WITH due AS (
-          SELECT id
-          FROM personal_journal_sessions
-          WHERE next_attempt_at <= $1
+          SELECT session.id, session.status AS previous_status
+          FROM personal_journal_sessions AS session
+          WHERE session.next_attempt_at <= $1
             AND (
-              (status = 'active' AND ends_at <= $1)
-              OR status = 'awaiting_delivery'
+              (session.status = 'active' AND session.ends_at <= $1)
+              OR session.status = 'awaiting_delivery'
               OR (
-                status = 'summarizing'
-                AND delivery_started_at <= $1 - INTERVAL '5 minutes'
+                session.status = 'summarizing'
+                AND session.delivery_started_at <= $1 - INTERVAL '5 minutes'
               )
             )
-          ORDER BY next_attempt_at ASC, id ASC
+          ORDER BY session.next_attempt_at ASC, session.id ASC
           LIMIT $2
           FOR UPDATE SKIP LOCKED
         ), claimed AS (
@@ -312,7 +406,40 @@ export class PostgresJournalService implements JournalService {
             last_error = NULL
           FROM due
           WHERE session.id = due.id
-          RETURNING session.*
+          RETURNING session.*, due.previous_status
+        ), future_sessions AS (
+          INSERT INTO personal_journal_sessions (
+            guild_id,
+            user_id,
+            started_at,
+            ends_at,
+            next_attempt_at,
+            recurring
+          )
+          SELECT
+            claimed.guild_id,
+            claimed.user_id,
+            (
+              claimed.ends_at AT TIME ZONE settings.timezone
+              + generated.day_offset * INTERVAL '1 day'
+            ) AT TIME ZONE settings.timezone,
+            (
+              claimed.ends_at AT TIME ZONE settings.timezone
+              + (generated.day_offset + 1) * INTERVAL '1 day'
+            ) AT TIME ZONE settings.timezone,
+            (
+              claimed.ends_at AT TIME ZONE settings.timezone
+              + (generated.day_offset + 1) * INTERVAL '1 day'
+            ) AT TIME ZONE settings.timezone,
+            TRUE
+          FROM claimed
+          JOIN guild_settings AS settings
+            ON settings.guild_id = claimed.guild_id
+          CROSS JOIN generate_series(0, 1) AS generated(day_offset)
+          WHERE claimed.previous_status = 'active'
+            AND claimed.recurring
+          ON CONFLICT (guild_id, user_id, started_at) DO NOTHING
+          RETURNING id
         )
         SELECT
           claimed.id::text,
@@ -325,6 +452,8 @@ export class PostgresJournalService implements JournalService {
           COUNT(message.message_id)::text AS message_count,
           claimed.delivery_attempts
         FROM claimed
+        LEFT JOIN (SELECT COUNT(*) AS ensured FROM future_sessions) AS ensured
+          ON TRUE
         LEFT JOIN personal_journal_messages AS message
           ON message.session_id = claimed.id
         GROUP BY

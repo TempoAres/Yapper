@@ -17,6 +17,7 @@ import type { JournalService } from "../services/journal/journal-service.js";
 export interface JournalCommandConfig {
   targetUserId: string | undefined;
   summarizationConfigured: boolean;
+  timezone: string;
 }
 
 export interface CommandContext {
