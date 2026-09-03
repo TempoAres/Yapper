@@ -7,8 +7,7 @@ import {
 
 import type { BotCommand, CommandContext } from "./command.js";
 import type { JournalSession } from "../services/journal/journal-service.js";
-
-const JOURNAL_DURATION_MS = 24 * 60 * 60 * 1_000;
+import { nextLocalMidnight } from "../services/leaderboards/leaderboard-period.js";
 
 function timestamp(date: Date, style: "F" | "R"): string {
   return `<t:${Math.floor(date.getTime() / 1_000)}:${style}>`;
@@ -36,19 +35,20 @@ export function buildJournalStatusResponse(session: JournalSession): string {
     `Personal journal **#${session.id}** is ${state}.`,
     `Recorded messages: **${session.messageCount.toLocaleString("en-US")}**`,
     `Started: ${timestamp(session.startedAt, "F")}`,
+    "Daily summaries continue automatically until `/journal cancel`.",
   ].join("\n");
 }
 
 export const journalCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("journal")
-    .setDescription("Manage the private 24-hour personal journal.")
+    .setDescription("Manage the private daily personal journal.")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
     .addSubcommand((subcommand) =>
       subcommand
         .setName("start")
-        .setDescription("Start the configured user's private 24-hour journal."),
+        .setDescription("Start continuous private summaries at local midnight."),
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -123,7 +123,7 @@ export const journalCommand: BotCommand = {
       });
       await interaction.editReply({
         content: queued
-          ? "Recording stopped. Yapper is preparing the private DM summary now."
+          ? "Yapper is preparing a private DM summary now and will keep recording continuously."
           : "There is no actively recording journal to summarize.",
       });
       return;
@@ -136,12 +136,13 @@ export const journalCommand: BotCommand = {
         guildId: interaction.guildId,
         userId: targetUserId,
         startedAt,
-        endsAt: new Date(startedAt.getTime() + JOURNAL_DURATION_MS),
+        endsAt: nextLocalMidnight(startedAt, context.journalConfig.timezone),
       });
       await interaction.editReply({
         content: [
           `Started personal journal **#${session.id}** for <@${targetUserId}>.`,
-          `It ends ${timestamp(session.endsAt, "F")} (${timestamp(session.endsAt, "R")}); the summary will be sent only to that user's DMs.`,
+          `The first summary is at ${timestamp(session.endsAt, "F")} (${timestamp(session.endsAt, "R")}); daily summaries will continue at midnight until \`/journal cancel\`.`,
+          "Summaries will be sent only to that user's DMs.",
         ].join("\n"),
         allowedMentions: { parse: [] },
       });

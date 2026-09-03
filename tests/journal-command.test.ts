@@ -42,5 +42,6 @@ describe("journal command", () => {
     assert.match(response, /Personal journal \*\*#7\*\*/);
     assert.match(response, /Recorded messages: \*\*321\*\*/);
     assert.match(response, /<t:1788429600:R>/);
+    assert.match(response, /continue automatically/);
   });
 });

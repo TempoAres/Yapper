@@ -146,6 +146,11 @@ function localMidnight(parts: LocalDateParts, timezone: string): Date {
   return result;
 }
 
+export function nextLocalMidnight(date: Date, timezone: string): Date {
+  const localDate = getLocalDateParts(date, timezone);
+  return localMidnight(addDays(localDate, 1), timezone);
+}
+
 function naturalPeriod(scope: Exclude<LeaderboardScope, "all">, today: LocalDateParts): {
   start: LocalDateParts;
   end: LocalDateParts;
