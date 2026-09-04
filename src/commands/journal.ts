@@ -35,7 +35,7 @@ export function buildJournalStatusResponse(session: JournalSession): string {
     `Personal journal **#${session.id}** is ${state}.`,
     `Recorded messages: **${session.messageCount.toLocaleString("en-US")}**`,
     `Started: ${timestamp(session.startedAt, "F")}`,
-    "Daily summaries continue automatically until `/journal cancel`.",
+    "Daily retros continue automatically; Monday midnight sends the weekly report instead. Use `/journal cancel` to stop.",
   ].join("\n");
 }
 
@@ -141,7 +141,7 @@ export const journalCommand: BotCommand = {
       await interaction.editReply({
         content: [
           `Started personal journal **#${session.id}** for <@${targetUserId}>.`,
-          `The first summary is at ${timestamp(session.endsAt, "F")} (${timestamp(session.endsAt, "R")}); daily summaries will continue at midnight until \`/journal cancel\`.`,
+          `The first retro is at ${timestamp(session.endsAt, "F")} (${timestamp(session.endsAt, "R")}); daily retros continue at midnight, with a weekly report replacing Sunday's retro.`,
           "Summaries will be sent only to that user's DMs.",
         ].join("\n"),
         allowedMentions: { parse: [] },

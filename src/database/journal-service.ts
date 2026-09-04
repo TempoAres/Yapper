@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 
 import type {
   JournalMessage,
+  JournalRetainedSummary,
   JournalService,
   JournalSession,
   JournalStatus,
@@ -25,6 +26,12 @@ interface JournalMessageRow {
   channel_name: string;
   content: string;
   created_at: Date;
+}
+
+interface JournalRetainedSummaryRow {
+  started_at: Date;
+  ends_at: Date;
+  summary_text: string;
 }
 
 function parseDatabaseId(value: string): number {
@@ -313,6 +320,18 @@ export class PostgresJournalService implements JournalService {
       );
       const sessionIds = result.rows.map((row) => row.id);
 
+      await client.query(
+        `
+          UPDATE personal_journal_sessions
+          SET summary_text = NULL
+          WHERE guild_id = $1
+            AND user_id = $2
+            AND status = 'delivered'
+            AND summary_text IS NOT NULL
+        `,
+        [input.guildId, input.userId],
+      );
+
       if (sessionIds.length > 0) {
         await client.query(
           "DELETE FROM personal_journal_messages WHERE session_id = ANY($1::bigint[])",
@@ -494,6 +513,34 @@ export class PostgresJournalService implements JournalService {
     }));
   }
 
+  public async listRetainedSummaries(input: {
+    guildId: string;
+    userId: string;
+    from: Date;
+    through: Date;
+  }): Promise<readonly JournalRetainedSummary[]> {
+    const result = await this.pool.query<JournalRetainedSummaryRow>(
+      `
+        SELECT started_at, ends_at, summary_text
+        FROM personal_journal_sessions
+        WHERE guild_id = $1
+          AND user_id = $2
+          AND status = 'delivered'
+          AND summary_text IS NOT NULL
+          AND started_at >= $3
+          AND ends_at <= $4
+        ORDER BY started_at ASC, id ASC
+      `,
+      [input.guildId, input.userId, input.from, input.through],
+    );
+
+    return result.rows.map((row) => ({
+      startedAt: row.started_at,
+      endsAt: row.ends_at,
+      summaryText: row.summary_text,
+    }));
+  }
+
   public async saveSummary(sessionId: number, summaryText: string): Promise<void> {
     const result = await this.pool.query(
       `
@@ -513,33 +560,60 @@ export class PostgresJournalService implements JournalService {
     }
   }
 
-  public async markDelivered(sessionId: number, deliveredAt: Date): Promise<void> {
+  public async markDelivered(input: {
+    sessionId: number;
+    deliveredAt: Date;
+    clearRetainedSummaries: boolean;
+  }): Promise<void> {
     const client = await this.pool.connect();
 
     try {
       await client.query("BEGIN");
-      const result = await client.query(
+      const result = await client.query<{
+        guild_id: string;
+        user_id: string;
+        ends_at: Date;
+      }>(
         `
           UPDATE personal_journal_sessions
           SET
             status = 'delivered',
             delivered_at = $2,
-            summary_text = NULL,
             delivery_started_at = NULL,
             last_error = NULL
           WHERE id = $1 AND status IN ('summarizing', 'awaiting_delivery')
+          RETURNING guild_id, user_id, ends_at
         `,
-        [sessionId, deliveredAt],
+        [input.sessionId, input.deliveredAt],
       );
 
       if ((result.rowCount ?? 0) === 0) {
         throw new Error("Journal session is no longer available for delivery.");
       }
 
-      await client.query(
-        "DELETE FROM personal_journal_messages WHERE session_id = $1",
-        [sessionId],
-      );
+      const delivered = result.rows[0];
+
+      if (!delivered) {
+        throw new Error("Journal session was not returned after delivery.");
+      }
+
+      await client.query("DELETE FROM personal_journal_messages WHERE session_id = $1", [
+        input.sessionId,
+      ]);
+
+      if (input.clearRetainedSummaries) {
+        await client.query(
+          `
+            UPDATE personal_journal_sessions
+            SET summary_text = NULL
+            WHERE guild_id = $1
+              AND user_id = $2
+              AND status = 'delivered'
+              AND ends_at <= $3
+          `,
+          [delivered.guild_id, delivered.user_id, delivered.ends_at],
+        );
+      }
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -569,7 +643,7 @@ export class PostgresJournalService implements JournalService {
             )
           ),
           last_error = LEFT($2, 500)
-        WHERE id = $1 AND status = 'summarizing'
+        WHERE id = $1 AND status IN ('summarizing', 'awaiting_delivery')
       `,
       [input.sessionId, input.error],
     );

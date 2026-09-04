@@ -38,8 +38,8 @@ simple architecture intended to be approachable for a first-time bot developer.
   their Europe/Berlin reset.
 - `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
 - An administrator-only `/journal` workflow that records one explicitly
-  configured user's messages for 24 hours, creates a private OpenAI summary,
-  DMs it only to that user, and deletes the temporary transcript afterward.
+  configured user's messages, sends short private daily OpenAI retros plus a
+  longer weekly embed, and deletes each temporary transcript afterward.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -313,9 +313,17 @@ The journal is deliberately limited to the single consented Discord user in
 
 `start` enables continuous daily recording. The first window runs until the
 next midnight in the configured `TIMEZONE`; every later window covers one local
-calendar day. A private summary is sent after each midnight until an
-administrator runs `cancel`. The next window is prepared before the previous
-one is summarized, so recording continues during API or DM delivery retries.
+calendar day. A private retro is sent after each midnight until an administrator
+runs `cancel`. Daily DMs have a hard 1,000-character limit and are always sent
+inline, never as file attachments. The next window is prepared before the
+previous one is summarized, so recording continues during API or DM delivery
+retries.
+
+At the Sunday-to-Monday midnight boundary, Yapper sends a weekly embed instead
+of Sunday's daily DM. The weekly retro is built from the short daily retros,
+has a hard 4,000-character summary limit, and runs automatically every week.
+This keeps weekly processing lightweight and avoids retaining a week's raw
+Discord messages.
 
 Yapper stores message text plus channel and timestamp context, but it does not
 download attachment contents or expose remote attachment URLs. Attachments and
@@ -331,11 +339,12 @@ summaries arrive as a Markdown attachment.
 The recording schedule and delivery queue survive bot or VPS restarts.
 Temporary failures are retried with increasing delays. `summarize-now` closes
 the current partial window and starts another immediately, without disabling
-future midnight summaries. Once delivery succeeds, or an administrator runs
-`cancel`, the affected stored message text and any pending summary are deleted
-from the live database. Journal session/message data is excluded from Yapper's
-logical database backups. Completed session metadata remains so operators can
-diagnose delivery without retaining the private content.
+future midnight summaries. Raw message text is deleted immediately after its
+daily delivery. Each short daily retro is retained only until the weekly embed
+is delivered, then deleted; `cancel` deletes both pending messages and retained
+retros. Journal session/message data is excluded from Yapper's logical database
+backups. Completed session metadata remains so operators can diagnose delivery
+without retaining the private content.
 
 ## Reaction leaderboards
 

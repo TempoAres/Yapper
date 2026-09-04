@@ -103,8 +103,9 @@ the API key into `.env.production`, Discord, a shell command, a screenshot, or
 GitHub. The Compose stack mounts the file read-only at runtime.
 
 Journal session and message rows are deliberately excluded from Yapper's daily
-logical PostgreSQL backups so temporary private transcripts are not retained in
-the 14-day backup history.
+logical PostgreSQL backups so temporary private transcripts and the short daily
+retros retained for the next weekly report do not enter the 14-day backup
+history.
 
 ## 4. Validate and start Yapper
 

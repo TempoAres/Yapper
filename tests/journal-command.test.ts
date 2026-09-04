@@ -43,5 +43,6 @@ describe("journal command", () => {
     assert.match(response, /Recorded messages: \*\*321\*\*/);
     assert.match(response, /<t:1788429600:R>/);
     assert.match(response, /continue automatically/);
+    assert.match(response, /weekly report instead/);
   });
 });

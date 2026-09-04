@@ -25,6 +25,12 @@ export interface JournalMessage {
   createdAt: Date;
 }
 
+export interface JournalRetainedSummary {
+  startedAt: Date;
+  endsAt: Date;
+  summaryText: string;
+}
+
 export interface JournalService {
   start(input: {
     guildId: string;
@@ -63,9 +69,20 @@ export interface JournalService {
 
   listMessages(sessionId: number): Promise<readonly JournalMessage[]>;
 
+  listRetainedSummaries(input: {
+    guildId: string;
+    userId: string;
+    from: Date;
+    through: Date;
+  }): Promise<readonly JournalRetainedSummary[]>;
+
   saveSummary(sessionId: number, summaryText: string): Promise<void>;
 
-  markDelivered(sessionId: number, deliveredAt: Date): Promise<void>;
+  markDelivered(input: {
+    sessionId: number;
+    deliveredAt: Date;
+    clearRetainedSummaries: boolean;
+  }): Promise<void>;
 
   releaseForRetry(input: { sessionId: number; error: string }): Promise<void>;
 }
