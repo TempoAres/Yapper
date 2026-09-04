@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   calculateLeaderboardPeriod,
   calculateLeaderboardResetSchedule,
+  localMidnightDaysFrom,
   nextLocalMidnight,
 } from "../src/services/leaderboards/leaderboard-period.js";
 
@@ -214,6 +215,19 @@ describe("nextLocalMidnight", () => {
         "Europe/Berlin",
       ).toISOString(),
       "2026-10-24T22:00:00.000Z",
+    );
+  });
+});
+
+describe("localMidnightDaysFrom", () => {
+  it("finds the prior Monday across a daylight-saving week", () => {
+    assert.equal(
+      localMidnightDaysFrom(
+        new Date("2026-10-25T23:00:00.000Z"),
+        "Europe/Berlin",
+        -7,
+      ).toISOString(),
+      "2026-10-18T22:00:00.000Z",
     );
   });
 });

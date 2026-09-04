@@ -106,6 +106,7 @@ async function main(): Promise<void> {
           journalConfig.openAiApiKey,
           journalConfig.openAiModel,
         ),
+        leaderboardConfig.defaultTimezone,
       );
       journalRunner.start();
     }

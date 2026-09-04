@@ -55,7 +55,7 @@ describe("OpenAI journal summarizer", () => {
       request as typeof fetch,
     );
 
-    const summary = await summarizer.summarize({
+    const summary = await summarizer.summarizeDaily({
       startedAt: new Date("2026-09-02T00:00:00.000Z"),
       endsAt: new Date("2026-09-03T00:00:00.000Z"),
       messages,
@@ -75,9 +75,56 @@ describe("OpenAI journal summarizer", () => {
     assert.equal(body.reasoning.effort, "none");
     assert.match(body.input, /Finished the report/);
     assert.match(body.instructions, /untrusted quoted data/i);
+    assert.match(body.instructions, /800 characters/i);
     assert.equal(
       (requests[0]?.init.headers as Record<string, string>).Authorization,
       "Bearer test-key",
     );
+  });
+
+  it("creates the weekly retro only from retained daily retros", async () => {
+    const requests: RequestInit[] = [];
+    const request = async (_url: string | URL | Request, init?: RequestInit) => {
+      requests.push(init ?? {});
+      return new Response(
+        JSON.stringify({
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "## Week in review\nSolid progress." }],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const summarizer = new OpenAiJournalSummarizer(
+      "test-key",
+      "gpt-5.6-luna",
+      request as typeof fetch,
+    );
+
+    const summary = await summarizer.summarizeWeekly({
+      startedAt: new Date("2026-08-31T22:00:00.000Z"),
+      endsAt: new Date("2026-09-06T22:00:00.000Z"),
+      dailySummaries: [
+        {
+          startedAt: new Date("2026-08-31T22:00:00.000Z"),
+          endsAt: new Date("2026-09-01T22:00:00.000Z"),
+          summaryText: "Finished the first milestone.",
+        },
+      ],
+    });
+    const body = JSON.parse(String(requests[0]?.body)) as {
+      input: string;
+      instructions: string;
+      max_output_tokens: number;
+    };
+
+    assert.match(summary, /Week in review/);
+    assert.match(body.input, /Finished the first milestone/);
+    assert.match(body.instructions, /weekly self-productivity retro/i);
+    assert.match(body.instructions, /3,900 characters/i);
+    assert.equal(body.max_output_tokens, 1_400);
   });
 });

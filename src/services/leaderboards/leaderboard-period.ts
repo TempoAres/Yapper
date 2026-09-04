@@ -151,6 +151,18 @@ export function nextLocalMidnight(date: Date, timezone: string): Date {
   return localMidnight(addDays(localDate, 1), timezone);
 }
 
+export function localMidnightDaysFrom(
+  date: Date,
+  timezone: string,
+  days: number,
+): Date {
+  if (!Number.isSafeInteger(days)) {
+    throw new RangeError("Local calendar-day offset must be a whole number.");
+  }
+
+  return localMidnight(addDays(getLocalDateParts(date, timezone), days), timezone);
+}
+
 function naturalPeriod(scope: Exclude<LeaderboardScope, "all">, today: LocalDateParts): {
   start: LocalDateParts;
   end: LocalDateParts;
