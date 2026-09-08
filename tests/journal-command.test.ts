@@ -16,6 +16,9 @@ const session: JournalSession = {
   startedAt: new Date("2026-09-02T10:00:00.000Z"),
   endsAt: new Date("2026-09-03T10:00:00.000Z"),
   summaryText: undefined,
+  publicSummaryText: undefined,
+  privateDeliveredAt: undefined,
+  publicDeliveredAt: undefined,
   messageCount: 321,
   deliveryAttempts: 0,
 };

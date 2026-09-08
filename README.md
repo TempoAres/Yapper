@@ -325,6 +325,14 @@ has a hard 4,000-character summary limit, and runs automatically every week.
 This keeps weekly processing lightweight and avoids retaining a week's raw
 Discord messages.
 
+At the same boundary, Yapper creates a separate public-safe `Weekly Update`
+for `JOURNAL_PUBLIC_CHANNEL_ID` and pings only `JOURNAL_PUBLIC_ROLE_ID`. Its
+prompt prioritizes Minecraft progress and plans, then includes meaningful
+other-project or high-level real-life highlights. It excludes private or
+sensitive details and never copies the private weekly retro directly. The
+private and public results are stored independently until delivery, so retries
+reuse the same text instead of generating a different post.
+
 Yapper stores message text plus channel and timestamp context, but it does not
 download attachment contents or expose remote attachment URLs. Attachments and
 stickers are represented by name. No older Discord messages are scanned.
@@ -334,7 +342,7 @@ API using the configured cost-efficient model and `store: false`. Large days
 are summarized in bounded chunks before a final summary is created. Transcript
 content is treated as untrusted data and cannot change the summarization
 instructions. The result is sent only to the configured user's DMs; long
-summaries arrive as a Markdown attachment.
+daily summaries are shortened to stay within the inline message limit.
 
 The recording schedule and delivery queue survive bot or VPS restarts.
 Temporary failures are retried with increasing delays. `summarize-now` closes

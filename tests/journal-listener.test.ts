@@ -43,7 +43,8 @@ class FakeJournalService implements JournalService {
   public async listRetainedSummaries(): Promise<readonly []> {
     return [];
   }
-  public async saveSummary(): Promise<void> {}
+  public async saveSummaries(): Promise<void> {}
+  public async markDestinationDelivered(): Promise<void> {}
   public async markDelivered(): Promise<void> {}
   public async releaseForRetry(): Promise<void> {}
 }

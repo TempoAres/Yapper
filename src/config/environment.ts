@@ -41,6 +41,8 @@ export interface JournalConfig {
   targetUserId: string | undefined;
   openAiApiKey: string | undefined;
   openAiModel: string;
+  publicChannelId: string | undefined;
+  publicRoleId: string | undefined;
 }
 
 function readRequiredEnvironmentVariable(name: string): string {
@@ -202,14 +204,33 @@ export function loadLeaderboardAnnouncementConfig(): LeaderboardAnnouncementConf
 
 export function loadJournalConfig(): JournalConfig {
   const targetUserId = process.env.JOURNAL_USER_ID?.trim() || undefined;
+  const publicChannelId =
+    process.env.JOURNAL_PUBLIC_CHANNEL_ID?.trim() || undefined;
+  const publicRoleId = process.env.JOURNAL_PUBLIC_ROLE_ID?.trim() || undefined;
 
   if (targetUserId && !/^\d{17,20}$/.test(targetUserId)) {
     throw new Error("JOURNAL_USER_ID must be a Discord user ID.");
+  }
+
+  if (publicChannelId && !/^\d{17,20}$/.test(publicChannelId)) {
+    throw new Error("JOURNAL_PUBLIC_CHANNEL_ID must be a Discord channel ID.");
+  }
+
+  if (publicRoleId && !/^\d{17,20}$/.test(publicRoleId)) {
+    throw new Error("JOURNAL_PUBLIC_ROLE_ID must be a Discord role ID.");
+  }
+
+  if (Boolean(publicChannelId) !== Boolean(publicRoleId)) {
+    throw new Error(
+      "JOURNAL_PUBLIC_CHANNEL_ID and JOURNAL_PUBLIC_ROLE_ID must be set together.",
+    );
   }
 
   return {
     targetUserId,
     openAiApiKey: readOptionalSecret("OPENAI_API_KEY"),
     openAiModel: process.env.OPENAI_MODEL?.trim() || "gpt-5.6-luna",
+    publicChannelId,
+    publicRoleId,
   };
 }

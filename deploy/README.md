@@ -102,6 +102,15 @@ example already selects the cost-efficient `gpt-5.6-luna` model. Never paste
 the API key into `.env.production`, Discord, a shell command, a screenshot, or
 GitHub. The Compose stack mounts the file read-only at runtime.
 
+The production defaults also post a public-safe, Minecraft-focused weekly
+update to channel `1241133328518873108` and ping role
+`1241134136106811432` at the same Monday-midnight boundary as the private
+weekly DM. Override `JOURNAL_PUBLIC_CHANNEL_ID` and `JOURNAL_PUBLIC_ROLE_ID`
+together to change the destination. To disable the project-specific public
+post, remove its two environment entries from `compose.production.yaml`. The
+bot needs View Channel, Send Messages, and Embed Links in the destination. The
+role must be mentionable or the bot needs permission to mention roles.
+
 Journal session and message rows are deliberately excluded from Yapper's daily
 logical PostgreSQL backups so temporary private transcripts and the short daily
 retros retained for the next weekly report do not enter the 14-day backup

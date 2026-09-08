@@ -127,4 +127,59 @@ describe("OpenAI journal summarizer", () => {
     assert.match(body.instructions, /3,900 characters/i);
     assert.equal(body.max_output_tokens, 1_400);
   });
+
+  it("creates a distinct public-safe Minecraft weekly update", async () => {
+    const requests: RequestInit[] = [];
+    const request = async (_url: string | URL | Request, init?: RequestInit) => {
+      requests.push(init ?? {});
+      return new Response(
+        JSON.stringify({
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: "## Minecraft\nI made steady progress on the server.",
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const summarizer = new OpenAiJournalSummarizer(
+      "test-key",
+      "gpt-5.6-luna",
+      request as typeof fetch,
+    );
+
+    const summary = await summarizer.summarizePublicWeekly({
+      startedAt: new Date("2026-08-31T22:00:00.000Z"),
+      endsAt: new Date("2026-09-06T22:00:00.000Z"),
+      dailySummaries: [
+        {
+          startedAt: new Date("2026-08-31T22:00:00.000Z"),
+          endsAt: new Date("2026-09-01T22:00:00.000Z"),
+          summaryText: "Worked on a Minecraft build and handled a private matter.",
+        },
+      ],
+    });
+    const body = JSON.parse(String(requests[0]?.body)) as {
+      input: string;
+      instructions: string;
+      max_output_tokens: number;
+      store: boolean;
+    };
+
+    assert.match(summary, /Minecraft/);
+    assert.match(body.input, /Minecraft build/);
+    assert.match(body.instructions, /public weekly Discord update/i);
+    assert.match(body.instructions, /Focus mainly on grounded Minecraft/i);
+    assert.match(body.instructions, /Omit private conversations/i);
+    assert.match(body.instructions, /Do not reveal.*language model/i);
+    assert.equal(body.max_output_tokens, 1_400);
+    assert.equal(body.store, false);
+  });
 });

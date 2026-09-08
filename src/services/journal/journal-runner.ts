@@ -13,10 +13,20 @@ const POLL_INTERVAL_MS = 15_000;
 const CLAIM_LIMIT = 5;
 export const DAILY_MESSAGE_CHARACTER_LIMIT = 1_000;
 export const WEEKLY_SUMMARY_CHARACTER_LIMIT = 4_000;
+export const PUBLIC_WEEKLY_SUMMARY_CHARACTER_LIMIT = 4_000;
 const EMBED_DESCRIPTION_CHARACTER_LIMIT = 4_096;
 
 function deliveryNonce(sessionId: number): string {
   return `yj-${sessionId}`;
+}
+
+function publicDeliveryNonce(sessionId: number): string {
+  return `yj-public-${sessionId}`;
+}
+
+export interface PublicWeeklyUpdateConfig {
+  channelId: string | undefined;
+  roleId: string | undefined;
 }
 
 function discordTimestamp(date: Date, style: "d" | "f"): string {
@@ -116,6 +126,50 @@ export async function deliverWeeklyJournalSummary(
   });
 }
 
+export async function deliverPublicWeeklyUpdate(
+  client: Client,
+  session: JournalSession,
+  weekStartedAt: Date,
+  summary: string,
+  channelId: string,
+  roleId: string,
+): Promise<void> {
+  const channel = await client.channels.fetch(channelId);
+
+  if (
+    !channel ||
+    !channel.isSendable() ||
+    !("guildId" in channel) ||
+    channel.guildId !== session.guildId
+  ) {
+    throw new Error(
+      "The configured public weekly-update channel is unavailable or belongs to another server.",
+    );
+  }
+
+  const window = `${discordTimestamp(weekStartedAt, "d")} – ${discordTimestamp(session.endsAt, "d")}`;
+  const maximumSummaryLength = Math.min(
+    PUBLIC_WEEKLY_SUMMARY_CHARACTER_LIMIT,
+    EMBED_DESCRIPTION_CHARACTER_LIMIT - window.length - 2,
+  );
+  const embed = new EmbedBuilder()
+    .setColor(yapperColors.violet)
+    .setTitle("Weekly Update")
+    .setDescription(
+      `${window}\n\n${truncateJournalText(summary, maximumSummaryLength)}`,
+    )
+    .setFooter({ text: "Minecraft, projects, and life" })
+    .setTimestamp(session.endsAt);
+
+  await channel.send({
+    content: `<@&${roleId}>`,
+    embeds: [embed],
+    allowedMentions: { parse: [], roles: [roleId] },
+    nonce: publicDeliveryNonce(session.id),
+    enforceNonce: true,
+  });
+}
+
 export class JournalRunner {
   private timer: NodeJS.Timeout | undefined;
   private running = false;
@@ -127,6 +181,10 @@ export class JournalRunner {
     private readonly service: JournalService,
     private readonly summarizer: JournalSummarizer,
     private readonly timezone: string,
+    private readonly publicWeeklyUpdate: PublicWeeklyUpdateConfig = {
+      channelId: undefined,
+      roleId: undefined,
+    },
   ) {}
 
   public start(): void {
@@ -170,8 +228,14 @@ export class JournalRunner {
             })
           : [];
         let summary = session.summaryText;
+        let publicSummary = session.publicSummaryText;
+        const publicUpdateEnabled = Boolean(
+          weekly &&
+            this.publicWeeklyUpdate.channelId &&
+            this.publicWeeklyUpdate.roleId,
+        );
 
-        if (!summary) {
+        if (!summary || (publicUpdateEnabled && !publicSummary)) {
           const messages = await this.service.listMessages(session.id);
           const dailySummary = fitDailySummary(
             session,
@@ -191,32 +255,75 @@ export class JournalRunner {
                 summaryText: dailySummary,
               },
             ];
-            summary = truncateJournalText(
-              await this.summarizer.summarizeWeekly({
-                startedAt: weekStartedAt ?? session.startedAt,
-                endsAt: session.endsAt,
-                dailySummaries: weeklyInputs,
-              }),
-              WEEKLY_SUMMARY_CHARACTER_LIMIT,
-            );
+            const weeklyInput = {
+              startedAt: weekStartedAt ?? session.startedAt,
+              endsAt: session.endsAt,
+              dailySummaries: weeklyInputs,
+            };
+
+            if (!summary) {
+              summary = truncateJournalText(
+                await this.summarizer.summarizeWeekly(weeklyInput),
+                WEEKLY_SUMMARY_CHARACTER_LIMIT,
+              );
+            }
+
+            if (publicUpdateEnabled && !publicSummary) {
+              publicSummary = truncateJournalText(
+                await this.summarizer.summarizePublicWeekly(weeklyInput),
+                PUBLIC_WEEKLY_SUMMARY_CHARACTER_LIMIT,
+              );
+            }
           } else {
             summary = dailySummary;
           }
 
-          await this.service.saveSummary(session.id, summary);
+          await this.service.saveSummaries({
+            sessionId: session.id,
+            summaryText: summary,
+            publicSummaryText: publicSummary,
+          });
         }
 
-        const user = await this.client.users.fetch(session.userId);
+        if (!session.privateDeliveredAt) {
+          const user = await this.client.users.fetch(session.userId);
 
-        if (weekly) {
-          await deliverWeeklyJournalSummary(
-            user,
+          if (weekly) {
+            await deliverWeeklyJournalSummary(
+              user,
+              session,
+              weekStartedAt ?? session.startedAt,
+              summary,
+            );
+          } else {
+            await deliverDailyJournalSummary(user, session, summary);
+          }
+
+          await this.service.markDestinationDelivered({
+            sessionId: session.id,
+            destination: "private",
+            deliveredAt: new Date(),
+          });
+        }
+
+        if (
+          publicUpdateEnabled &&
+          !session.publicDeliveredAt &&
+          publicSummary
+        ) {
+          await deliverPublicWeeklyUpdate(
+            this.client,
             session,
             weekStartedAt ?? session.startedAt,
-            summary,
+            publicSummary,
+            this.publicWeeklyUpdate.channelId!,
+            this.publicWeeklyUpdate.roleId!,
           );
-        } else {
-          await deliverDailyJournalSummary(user, session, summary);
+          await this.service.markDestinationDelivered({
+            sessionId: session.id,
+            destination: "public",
+            deliveredAt: new Date(),
+          });
         }
 
         await this.service.markDelivered({
