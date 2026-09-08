@@ -16,6 +16,9 @@ interface JournalSessionRow {
   started_at: Date;
   ends_at: Date;
   summary_text: string | null;
+  public_summary_text: string | null;
+  private_delivered_at: Date | null;
+  public_delivered_at: Date | null;
   message_count: string;
   delivery_attempts: number;
 }
@@ -53,6 +56,9 @@ function toSession(row: JournalSessionRow): JournalSession {
     startedAt: row.started_at,
     endsAt: row.ends_at,
     summaryText: row.summary_text ?? undefined,
+    publicSummaryText: row.public_summary_text ?? undefined,
+    privateDeliveredAt: row.private_delivered_at ?? undefined,
+    publicDeliveredAt: row.public_delivered_at ?? undefined,
     messageCount: Number(row.message_count),
     deliveryAttempts: row.delivery_attempts,
   };
@@ -67,6 +73,9 @@ const sessionSelection = `
     session.started_at,
     session.ends_at,
     session.summary_text,
+    session.public_summary_text,
+    session.private_delivered_at,
+    session.public_delivered_at,
     COUNT(message.message_id)::text AS message_count,
     session.delivery_attempts
   FROM personal_journal_sessions AS session
@@ -171,6 +180,9 @@ export class PostgresJournalService implements JournalService {
             started_at,
             ends_at,
             summary_text,
+            public_summary_text,
+            private_delivered_at,
+            public_delivered_at,
             '0'::text AS message_count,
             delivery_attempts
           FROM current_session
@@ -309,6 +321,9 @@ export class PostgresJournalService implements JournalService {
             status = 'cancelled',
             cancelled_at = NOW(),
             summary_text = NULL,
+            public_summary_text = NULL,
+            private_delivered_at = NULL,
+            public_delivered_at = NULL,
             delivery_started_at = NULL,
             last_error = NULL
           WHERE guild_id = $1
@@ -323,7 +338,9 @@ export class PostgresJournalService implements JournalService {
       await client.query(
         `
           UPDATE personal_journal_sessions
-          SET summary_text = NULL
+          SET
+            summary_text = NULL,
+            public_summary_text = NULL
           WHERE guild_id = $1
             AND user_id = $2
             AND status = 'delivered'
@@ -468,6 +485,9 @@ export class PostgresJournalService implements JournalService {
           claimed.started_at,
           claimed.ends_at,
           claimed.summary_text,
+          claimed.public_summary_text,
+          claimed.private_delivered_at,
+          claimed.public_delivered_at,
           COUNT(message.message_id)::text AS message_count,
           claimed.delivery_attempts
         FROM claimed
@@ -483,6 +503,9 @@ export class PostgresJournalService implements JournalService {
           claimed.started_at,
           claimed.ends_at,
           claimed.summary_text,
+          claimed.public_summary_text,
+          claimed.private_delivered_at,
+          claimed.public_delivered_at,
           claimed.delivery_attempts
       `,
       [input.now, input.limit],
@@ -541,22 +564,50 @@ export class PostgresJournalService implements JournalService {
     }));
   }
 
-  public async saveSummary(sessionId: number, summaryText: string): Promise<void> {
+  public async saveSummaries(input: {
+    sessionId: number;
+    summaryText: string;
+    publicSummaryText: string | undefined;
+  }): Promise<void> {
     const result = await this.pool.query(
       `
         UPDATE personal_journal_sessions
         SET
           status = 'awaiting_delivery',
           summary_text = $2,
+          public_summary_text = $3,
           delivery_started_at = NULL,
           next_attempt_at = NOW()
         WHERE id = $1 AND status = 'summarizing'
       `,
-      [sessionId, summaryText],
+      [input.sessionId, input.summaryText, input.publicSummaryText ?? null],
     );
 
     if ((result.rowCount ?? 0) === 0) {
       throw new Error("Journal session is no longer available for summarization.");
+    }
+  }
+
+  public async markDestinationDelivered(input: {
+    sessionId: number;
+    destination: "private" | "public";
+    deliveredAt: Date;
+  }): Promise<void> {
+    const column =
+      input.destination === "private"
+        ? "private_delivered_at"
+        : "public_delivered_at";
+    const result = await this.pool.query(
+      `
+        UPDATE personal_journal_sessions
+        SET ${column} = COALESCE(${column}, $2)
+        WHERE id = $1 AND status IN ('summarizing', 'awaiting_delivery')
+      `,
+      [input.sessionId, input.deliveredAt],
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error("Journal session is no longer available for delivery.");
     }
   }
 
@@ -605,7 +656,9 @@ export class PostgresJournalService implements JournalService {
         await client.query(
           `
             UPDATE personal_journal_sessions
-            SET summary_text = NULL
+            SET
+              summary_text = NULL,
+              public_summary_text = NULL
             WHERE guild_id = $1
               AND user_id = $2
               AND status = 'delivered'

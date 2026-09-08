@@ -13,6 +13,9 @@ export interface JournalSession {
   startedAt: Date;
   endsAt: Date;
   summaryText: string | undefined;
+  publicSummaryText: string | undefined;
+  privateDeliveredAt: Date | undefined;
+  publicDeliveredAt: Date | undefined;
   messageCount: number;
   deliveryAttempts: number;
 }
@@ -76,7 +79,17 @@ export interface JournalService {
     through: Date;
   }): Promise<readonly JournalRetainedSummary[]>;
 
-  saveSummary(sessionId: number, summaryText: string): Promise<void>;
+  saveSummaries(input: {
+    sessionId: number;
+    summaryText: string;
+    publicSummaryText: string | undefined;
+  }): Promise<void>;
+
+  markDestinationDelivered(input: {
+    sessionId: number;
+    destination: "private" | "public";
+    deliveredAt: Date;
+  }): Promise<void>;
 
   markDelivered(input: {
     sessionId: number;

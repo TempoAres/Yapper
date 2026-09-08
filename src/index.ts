@@ -107,6 +107,10 @@ async function main(): Promise<void> {
           journalConfig.openAiModel,
         ),
         leaderboardConfig.defaultTimezone,
+        {
+          channelId: journalConfig.publicChannelId,
+          roleId: journalConfig.publicRoleId,
+        },
       );
       journalRunner.start();
     }
