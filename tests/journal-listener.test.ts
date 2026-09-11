@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import { MessageType, type Message } from "discord.js";
 
 import {
+  JOURNAL_CONTEXT_CHARACTER_LIMIT,
+  JournalContextTracker,
   handleJournalMessage,
   journalMessageContent,
 } from "../src/bot/journal-listener.js";
@@ -109,5 +111,90 @@ describe("journal message capture", () => {
     const content = journalMessageContent(message);
     assert.equal(content, "[Attachment: notes.pdf]\n[Sticker: Nice]");
     assert.doesNotMatch(content, /https?:/);
+  });
+
+  it("uses the most recent preceding human message as bounded context", async () => {
+    const tracker = new JournalContextTracker();
+    const service = new FakeJournalService();
+    const otherMessage = fakeMessage("111111111111111111") as Message<true>;
+    Object.assign(otherMessage, {
+      id: "other-message",
+      content: "Could you finish the castle roof?".repeat(100),
+      createdAt: new Date("2026-09-02T11:59:00.000Z"),
+    });
+    const authorMessage = fakeMessage() as Message<true>;
+
+    assert.equal(
+      await tracker.observe(otherMessage, "939644859092992060"),
+      undefined,
+    );
+    const context = await tracker.observe(
+      authorMessage,
+      "939644859092992060",
+    );
+
+    assert.equal(context?.messageId, "other-message");
+    assert.ok((context?.content.length ?? 0) <= JOURNAL_CONTEXT_CHARACTER_LIMIT);
+    assert.equal(context?.createdAt.toISOString(), "2026-09-02T11:59:00.000Z");
+    assert.equal("authorId" in (context ?? {}), false);
+    assert.equal(
+      await handleJournalMessage(
+        authorMessage,
+        service,
+        "939644859092992060",
+        context,
+      ),
+      true,
+    );
+    assert.deepEqual(service.recorded[0]?.contextMessage, context);
+  });
+
+  it("prefers a direct reply target over recent channel context", async () => {
+    const tracker = new JournalContextTracker();
+    const recentMessage = fakeMessage("111111111111111111") as Message<true>;
+    Object.assign(recentMessage, {
+      id: "recent-message",
+      content: "Unrelated recent topic.",
+      createdAt: new Date("2026-09-02T11:59:00.000Z"),
+    });
+    await tracker.observe(recentMessage, "939644859092992060");
+
+    const replyTarget = fakeMessage("222222222222222222") as Message<true>;
+    Object.assign(replyTarget, {
+      id: "reply-target",
+      content: "How is the Minecraft redstone project going?",
+      createdAt: new Date("2026-09-02T10:00:00.000Z"),
+    });
+    const authorReply = fakeMessage() as Message<true>;
+    Object.assign(authorReply, {
+      type: MessageType.Reply,
+      reference: { messageId: "reply-target" },
+      fetchReference: async () => replyTarget,
+    });
+
+    const context = await tracker.observe(
+      authorReply,
+      "939644859092992060",
+    );
+
+    assert.equal(context?.messageId, "reply-target");
+    assert.match(context?.content ?? "", /Minecraft redstone/);
+    assert.doesNotMatch(context?.content ?? "", /Unrelated/);
+  });
+
+  it("does not attach stale channel chatter to an unrelated message", async () => {
+    const tracker = new JournalContextTracker();
+    const otherMessage = fakeMessage("111111111111111111") as Message<true>;
+    Object.assign(otherMessage, {
+      id: "old-message",
+      createdAt: new Date("2026-09-02T10:00:00.000Z"),
+    });
+    await tracker.observe(otherMessage, "939644859092992060");
+    const authorMessage = fakeMessage() as Message<true>;
+
+    assert.equal(
+      await tracker.observe(authorMessage, "939644859092992060"),
+      undefined,
+    );
   });
 });

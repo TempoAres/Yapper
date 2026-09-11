@@ -142,7 +142,7 @@ export const journalCommand: BotCommand = {
         content: [
           `Started personal journal **#${session.id}** for <@${targetUserId}>.`,
           `The first retro is at ${timestamp(session.endsAt, "F")} (${timestamp(session.endsAt, "R")}); daily retros continue at midnight, with a weekly report replacing Sunday's retro.`,
-          "Summaries will be sent only to that user's DMs.",
+          "Private summaries go only to that user's DMs; the separately filtered weekly update uses the configured public channel.",
         ].join("\n"),
         allowedMentions: { parse: [] },
       });
