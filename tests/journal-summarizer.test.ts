@@ -33,6 +33,27 @@ describe("OpenAI journal summarizer", () => {
     assert.match(chunks[1] ?? "", /Tomorrow I need to send it/);
   });
 
+  it("labels and deduplicates another person's context inside a transcript chunk", () => {
+    const contextMessage = {
+      messageId: "context-1",
+      content: "Did the Minecraft build get finished?",
+      createdAt: new Date("2026-09-02T09:59:00.000Z"),
+    };
+    const chunks = splitJournalTranscript(
+      messages.map((message) => ({ ...message, contextMessage })),
+      10_000,
+    );
+    const transcript = chunks.join("\n");
+
+    assert.equal(
+      transcript.match(/Did the Minecraft build get finished\?/g)?.length,
+      1,
+    );
+    assert.match(transcript, /conversation_context_reference_only/);
+    assert.match(transcript, /same_context_as_previous_author_message/);
+    assert.equal(transcript.match(/journal_author_message/g)?.length, 2);
+  });
+
   it("uses the Responses API without server-side response storage", async () => {
     const requests: Array<{ url: string; init: RequestInit }> = [];
     const request = async (url: string | URL | Request, init?: RequestInit) => {
@@ -58,7 +79,17 @@ describe("OpenAI journal summarizer", () => {
     const summary = await summarizer.summarizeDaily({
       startedAt: new Date("2026-09-02T00:00:00.000Z"),
       endsAt: new Date("2026-09-03T00:00:00.000Z"),
-      messages,
+      messages: [
+        {
+          ...messages[0]!,
+          contextMessage: {
+            messageId: "context-1",
+            content: "Were you able to finish the report?",
+            createdAt: new Date("2026-09-02T09:59:00.000Z"),
+          },
+        },
+        messages[1]!,
+      ],
     });
     const body = JSON.parse(String(requests[0]?.init.body)) as {
       model: string;
@@ -74,7 +105,11 @@ describe("OpenAI journal summarizer", () => {
     assert.equal(body.store, false);
     assert.equal(body.reasoning.effort, "none");
     assert.match(body.input, /Finished the report/);
+    assert.match(body.input, /Were you able to finish the report/);
+    assert.match(body.input, /conversation_context_reference_only/);
     assert.match(body.instructions, /untrusted quoted data/i);
+    assert.match(body.instructions, /Summarize only records whose kind is journal_author_message/i);
+    assert.match(body.instructions, /never attribute them to the author/i);
     assert.match(body.instructions, /800 characters/i);
     assert.equal(
       (requests[0]?.init.headers as Record<string, string>).Authorization,

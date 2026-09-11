@@ -333,26 +333,34 @@ sensitive details and never copies the private weekly retro directly. The
 private and public results are stored independently until delivery, so retries
 reuse the same text instead of generating a different post.
 
-Yapper stores message text plus channel and timestamp context, but it does not
-download attachment contents or expose remote attachment URLs. Attachments and
-stickers are represented by name. No older Discord messages are scanned.
+Yapper stores the journal author's message text plus channel and timestamp
+context. It can also retain one bounded message from another person as
+reference: the message directly replied to, or the latest human message seen
+in that channel during the preceding 30 minutes. Other people's usernames and
+user IDs are not stored, context is capped at 2,000 characters, attachments
+are represented only by name, and remote attachment URLs are never retained.
+Yapper does not scan channel history.
 
 At the end of the window, Yapper sends the transcript to the OpenAI Responses
 API using the configured cost-efficient model and `store: false`. Large days
 are summarized in bounded chunks before a final summary is created. Transcript
 content is treated as untrusted data and cannot change the summarization
-instructions. The result is sent only to the configured user's DMs; long
-daily summaries are shortened to stay within the inline message limit.
+instructions. Other people's text is clearly labeled as reference-only; the
+model is instructed to summarize only the journal author and never attribute
+the context writer's activity, beliefs, plans, or achievements to them. Daily
+and private weekly results go only to the configured user's DMs; long daily
+summaries are shortened to stay within the inline message limit.
 
 The recording schedule and delivery queue survive bot or VPS restarts.
 Temporary failures are retried with increasing delays. `summarize-now` closes
 the current partial window and starts another immediately, without disabling
-future midnight summaries. Raw message text is deleted immediately after its
-daily delivery. Each short daily retro is retained only until the weekly embed
-is delivered, then deleted; `cancel` deletes both pending messages and retained
-retros. Journal session/message data is excluded from Yapper's logical database
-backups. Completed session metadata remains so operators can diagnose delivery
-without retaining the private content.
+future midnight summaries. Raw journal-author and reference-context text is
+deleted immediately after its daily delivery. Each short daily retro is
+retained only until the weekly embed is delivered, then deleted; `cancel`
+deletes both pending messages and retained retros. Journal session/message data
+is excluded from Yapper's logical database backups. Completed session metadata
+remains so operators can diagnose delivery without retaining the private
+content.
 
 ## Reaction leaderboards
 

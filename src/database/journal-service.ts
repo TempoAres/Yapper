@@ -29,6 +29,9 @@ interface JournalMessageRow {
   channel_name: string;
   content: string;
   created_at: Date;
+  context_message_id: string | null;
+  context_content: string | null;
+  context_created_at: Date | null;
 }
 
 interface JournalRetainedSummaryRow {
@@ -374,6 +377,11 @@ export class PostgresJournalService implements JournalService {
     channelName: string;
     content: string;
     createdAt: Date;
+    contextMessage?: {
+      messageId: string;
+      content: string;
+      createdAt: Date;
+    };
   }): Promise<boolean> {
     const result = await this.pool.query(
       `
@@ -383,9 +391,12 @@ export class PostgresJournalService implements JournalService {
           channel_id,
           channel_name,
           content,
-          created_at
+          created_at,
+          context_message_id,
+          context_content,
+          context_created_at
         )
-        SELECT id, $3, $4, $5, $6, $7
+        SELECT id, $3, $4, $5, $6, $7, $8, $9, $10
         FROM personal_journal_sessions
         WHERE guild_id = $1
           AND user_id = $2
@@ -402,6 +413,9 @@ export class PostgresJournalService implements JournalService {
         input.channelName,
         input.content,
         input.createdAt,
+        input.contextMessage?.messageId ?? null,
+        input.contextMessage?.content ?? null,
+        input.contextMessage?.createdAt ?? null,
       ],
     );
 
@@ -519,7 +533,15 @@ export class PostgresJournalService implements JournalService {
   ): Promise<readonly JournalMessage[]> {
     const result = await this.pool.query<JournalMessageRow>(
       `
-        SELECT message_id, channel_id, channel_name, content, created_at
+        SELECT
+          message_id,
+          channel_id,
+          channel_name,
+          content,
+          created_at,
+          context_message_id,
+          context_content,
+          context_created_at
         FROM personal_journal_messages
         WHERE session_id = $1
         ORDER BY created_at ASC, message_id ASC
@@ -527,13 +549,29 @@ export class PostgresJournalService implements JournalService {
       [sessionId],
     );
 
-    return result.rows.map((row) => ({
-      messageId: row.message_id,
-      channelId: row.channel_id,
-      channelName: row.channel_name,
-      content: row.content,
-      createdAt: row.created_at,
-    }));
+    return result.rows.map((row) => {
+      const message: JournalMessage = {
+        messageId: row.message_id,
+        channelId: row.channel_id,
+        channelName: row.channel_name,
+        content: row.content,
+        createdAt: row.created_at,
+      };
+
+      if (
+        row.context_message_id &&
+        row.context_content &&
+        row.context_created_at
+      ) {
+        message.contextMessage = {
+          messageId: row.context_message_id,
+          content: row.context_content,
+          createdAt: row.context_created_at,
+        };
+      }
+
+      return message;
+    });
   }
 
   public async listRetainedSummaries(input: {

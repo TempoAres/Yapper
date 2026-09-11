@@ -26,6 +26,13 @@ export interface JournalMessage {
   channelName: string;
   content: string;
   createdAt: Date;
+  contextMessage?: JournalContextMessage;
+}
+
+export interface JournalContextMessage {
+  messageId: string;
+  content: string;
+  createdAt: Date;
 }
 
 export interface JournalRetainedSummary {
@@ -63,6 +70,7 @@ export interface JournalService {
     channelName: string;
     content: string;
     createdAt: Date;
+    contextMessage?: JournalContextMessage;
   }): Promise<boolean>;
 
   claimDue(input: {

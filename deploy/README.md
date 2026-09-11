@@ -114,7 +114,9 @@ role must be mentionable or the bot needs permission to mention roles.
 Journal session and message rows are deliberately excluded from Yapper's daily
 logical PostgreSQL backups so temporary private transcripts and the short daily
 retros retained for the next weekly report do not enter the 14-day backup
-history.
+history. A journal row may temporarily include one other person's bounded
+message as reply/conversation context. It stores no context-author identity,
+and that text is deleted with the journal author's message after delivery.
 
 ## 4. Validate and start Yapper
 
