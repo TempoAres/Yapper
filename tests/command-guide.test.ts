@@ -33,6 +33,7 @@ describe("command guide", () => {
     );
     assert.match(json.fields?.[0]?.value ?? "", /`\/lb all`/);
     assert.match(json.fields?.[0]?.value ?? "", /`\/lb daily`/);
+    assert.match(json.fields?.[0]?.value ?? "", /`\/lbs`/);
     assert.match(json.fields?.[1]?.value ?? "", /`\/xplb`/);
     assert.match(json.fields?.[3]?.value ?? "", /`\/wins weekly`/);
     assert.match(json.fields?.[3]?.value ?? "", /`\/wins daily`/);

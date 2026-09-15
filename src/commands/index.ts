@@ -7,6 +7,7 @@ import {
   topCommand,
   xpLeaderboardCommand,
 } from "./leaderboard.js";
+import { leaderboardSummaryCommand } from "./leaderboard-summary.js";
 import { pingCommand } from "./ping.js";
 import { rankCommand } from "./rank.js";
 import { reactionCommand } from "./reactions.js";
@@ -24,6 +25,7 @@ export const commands: readonly BotCommand[] = [
   emojiCommand,
   journalCommand,
   leaderboardCommand,
+  leaderboardSummaryCommand,
   xpLeaderboardCommand,
   topCommand,
   recentCommand,
