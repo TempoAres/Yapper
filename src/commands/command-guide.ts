@@ -10,7 +10,8 @@ import { yapperColors } from "../presentation/colors.js";
 const commandGroups = [
   {
     name: "Level leaderboard",
-    commands: "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly",
+    commands:
+      "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly, /lbs",
   },
   { name: "XP leaderboard", commands: "/xplb" },
   {

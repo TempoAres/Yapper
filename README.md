@@ -24,6 +24,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - In-memory duplicate/low-effort XP filtering without persisting message content
   outside an explicitly active private journal.
 - `/lb all|daily|weekly|monthly|yearly` level leaderboards with optional pages.
+- `/lbs` for the current daily, weekly, and monthly top three in one compact
+  no-ping embed.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
 - `/top daily|weekly|monthly|yearly` for each member's best historical activity period.
 - `/wins daily|weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
@@ -200,7 +202,7 @@ pnpm dev
 ```
 
 Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `/timestamp`, `/rank`, `/xp info`,
-`/lb all`, `/xplb`, and `/react received` in the private server.
+`/lb all`, `/lbs`, `/xplb`, and `/react received` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
 Press `Ctrl+C` to stop the bot.
@@ -220,6 +222,11 @@ Press `Ctrl+C` to stop the bot.
 Every subcommand accepts an optional `page` from 1 to 10. The all-time board
 shows each member's current level and progress. Daily, weekly, monthly, and yearly
 boards show the levels and XP gained during the selected period.
+
+`/lbs` combines the current Daily, Weekly, and Monthly top three into one
+compact embed. Each section includes its own date window and shows the same
+level-gained and XP-gained values as the corresponding `/lb` period. Member
+mentions are rendered without sending notifications.
 
 `/xplb` shows the separate all-time XP leaderboard. It accepts an optional
 `page` from 1 to 10 and uses the same requester-bound pagination buttons.
