@@ -51,6 +51,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - Public `/rewards` list with colored role mentions and required levels, with
   notifications explicitly suppressed.
 - Stackable level-role catch-up after message XP, admin XP, or manual sync.
+- In-channel announcements after message XP grants a new reward role; the
+  member is pinged once while every displayed role mention stays silent.
 - Clear diagnostics for missing roles, managed roles, missing Manage Roles
   permission, Discord assignment failures, and role hierarchy conflicts.
 - Strict MEE6 `user_id,xp` CSV validation with row, total, and known-user checks.
@@ -452,6 +454,12 @@ Removing a reward configuration or lowering XP does not automatically revoke
 roles from members. This avoids surprising destructive role changes. Automatic
 sync runs after message XP and applied moderator XP changes; it only adds
 missing roles the member currently qualifies for.
+
+When message XP grants one or more missing reward roles, Yapper announces the
+achievement in the same channel. The member is pinged once, while role mentions
+are display-only and cannot notify everyone who already has those roles. Manual,
+administrator, and bulk synchronization remain quiet so catch-up operations do
+not flood a channel.
 
 ## MEE6 legacy XP import
 

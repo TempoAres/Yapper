@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { Guild, GuildMember } from "discord.js";
 
 import { DiscordRoleRewardCoordinator } from "../src/bot/role-reward-coordinator.js";
+import { createRoleRewardAnnouncement } from "../src/bot/message-xp-listener.js";
 import type {
   RoleRewardService,
   XpRoleReward,
@@ -118,6 +119,44 @@ describe("planStackedRoleSync", () => {
     assert.deepEqual(result.earned.map((item) => item.roleId), ["role-1", "role-5"]);
     assert.deepEqual(result.existing.map((item) => item.roleId), ["role-1"]);
     assert.deepEqual(result.missing.map((item) => item.roleId), ["role-5"]);
+  });
+});
+
+describe("role reward announcements", () => {
+  it("pings only the member while displaying the granted role", () => {
+    const announcement = createRoleRewardAnnouncement({
+      userId: "939644859092992060",
+      level: 180,
+      roleIds: ["1241134136106811432"],
+    });
+
+    assert.equal(
+      announcement.content,
+      "<@939644859092992060> just reached level **180** and obtained the <@&1241134136106811432> role!",
+    );
+    assert.deepEqual(announcement.allowedMentions, {
+      parse: [],
+      users: ["939644859092992060"],
+      roles: [],
+    });
+  });
+
+  it("combines stacked catch-up roles into one member ping", () => {
+    const announcement = createRoleRewardAnnouncement({
+      userId: "939644859092992060",
+      level: 180,
+      roleIds: ["role-160", "role-170", "role-180"],
+    });
+
+    assert.equal(
+      announcement.content,
+      "<@939644859092992060> just reached level **180** and obtained the <@&role-160>, <@&role-170>, and <@&role-180> roles!",
+    );
+    assert.deepEqual(announcement.allowedMentions, {
+      parse: [],
+      users: ["939644859092992060"],
+      roles: [],
+    });
   });
 });
 
