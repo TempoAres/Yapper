@@ -355,10 +355,14 @@ API using the configured cost-efficient model and `store: false`. Large days
 are summarized in bounded chunks before a final summary is created. Transcript
 content is treated as untrusted data and cannot change the summarization
 instructions. Other people's text is clearly labeled as reference-only; the
-model is instructed to summarize only the journal author and never attribute
-the context writer's activity, beliefs, plans, or achievements to them. Daily
-and private weekly results go only to the configured user's DMs; long daily
-summaries are shortened to stay within the inline message limit.
+API receives each item as one paired JSON record with an explicit
+`JOURNAL_OWNER` message and, when available, an `OTHER_PERSON_CONTEXT_ONLY`
+message whose `summarize` flag is false. The attribution gate permits a claim
+only when the owner's own message supports that it belongs to the owner; another
+person's activity, beliefs, plans, or achievements cannot become journal facts.
+Ambiguous ownership is omitted. Daily and private weekly results go only to the
+configured user's DMs; long daily summaries are shortened to stay within the
+inline message limit.
 
 The recording schedule and delivery queue survive bot or VPS restarts.
 Temporary failures are retried with increasing delays. `summarize-now` closes

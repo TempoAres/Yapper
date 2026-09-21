@@ -33,7 +33,7 @@ describe("OpenAI journal summarizer", () => {
     assert.match(chunks[1] ?? "", /Tomorrow I need to send it/);
   });
 
-  it("labels and deduplicates another person's context inside a transcript chunk", () => {
+  it("pairs every owner message with explicitly non-summarizable context", () => {
     const contextMessage = {
       messageId: "context-1",
       content: "Did the Minecraft build get finished?",
@@ -43,15 +43,70 @@ describe("OpenAI journal summarizer", () => {
       messages.map((message) => ({ ...message, contextMessage })),
       10_000,
     );
-    const transcript = chunks.join("\n");
+    const entries = chunks
+      .join("\n")
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const firstContext = entries[0]?.other_person_context as
+      | Record<string, unknown>
+      | undefined;
+    const firstOwnerMessage = entries[0]?.journal_owner_message as
+      | Record<string, unknown>
+      | undefined;
 
+    assert.equal(entries.length, 2);
+    assert.equal(entries[0]?.summary_subject, "JOURNAL_OWNER_ONLY");
+    assert.equal(firstContext?.speaker, "OTHER_PERSON_CONTEXT_ONLY");
+    assert.equal(firstContext?.summarize, false);
     assert.equal(
-      transcript.match(/Did the Minecraft build get finished\?/g)?.length,
-      1,
+      firstContext?.purpose,
+      "topic_context_for_paired_owner_message_only",
     );
-    assert.match(transcript, /conversation_context_reference_only/);
-    assert.match(transcript, /same_context_as_previous_author_message/);
-    assert.equal(transcript.match(/journal_author_message/g)?.length, 2);
+    assert.equal(firstOwnerMessage?.speaker, "JOURNAL_OWNER");
+    assert.equal(firstOwnerMessage?.summarize, true);
+    assert.equal(
+      entries.filter((entry) => "other_person_context" in entry).length,
+      2,
+    );
+  });
+
+  it("marks another person's accomplishment as context rather than owner evidence", () => {
+    const [transcript] = splitJournalTranscript([
+      {
+        messageId: "owner-reply",
+        channelId: "10",
+        channelName: "general",
+        content: "That looks fantastic, congratulations!",
+        createdAt: new Date("2026-09-02T10:01:00.000Z"),
+        contextMessage: {
+          messageId: "other-accomplishment",
+          content: "I finished rebuilding the entire Minecraft castle today.",
+          createdAt: new Date("2026-09-02T10:00:00.000Z"),
+        },
+      },
+    ]);
+    const entry = JSON.parse(transcript ?? "{}") as {
+      summary_subject?: string;
+      other_person_context?: { speaker?: string; summarize?: boolean; content?: string };
+      journal_owner_message?: { speaker?: string; summarize?: boolean; content?: string };
+    };
+
+    assert.equal(entry.summary_subject, "JOURNAL_OWNER_ONLY");
+    assert.deepEqual(entry.other_person_context, {
+      speaker: "OTHER_PERSON_CONTEXT_ONLY",
+      summarize: false,
+      purpose: "topic_context_for_paired_owner_message_only",
+      message_id: "other-accomplishment",
+      timestamp: "2026-09-02T10:00:00.000Z",
+      channel: "general",
+      content: "I finished rebuilding the entire Minecraft castle today.",
+    });
+    assert.equal(entry.journal_owner_message?.speaker, "JOURNAL_OWNER");
+    assert.equal(entry.journal_owner_message?.summarize, true);
+    assert.equal(
+      entry.journal_owner_message?.content,
+      "That looks fantastic, congratulations!",
+    );
   });
 
   it("uses the Responses API without server-side response storage", async () => {
@@ -106,10 +161,14 @@ describe("OpenAI journal summarizer", () => {
     assert.equal(body.reasoning.effort, "none");
     assert.match(body.input, /Finished the report/);
     assert.match(body.input, /Were you able to finish the report/);
-    assert.match(body.input, /conversation_context_reference_only/);
+    assert.match(body.input, /OTHER_PERSON_CONTEXT_ONLY/);
+    assert.match(body.input, /JOURNAL_OWNER_ONLY/);
+    assert.match(body.input, /"summarize":false/);
+    assert.match(body.input, /"summarize":true/);
     assert.match(body.instructions, /untrusted quoted data/i);
-    assert.match(body.instructions, /Summarize only records whose kind is journal_author_message/i);
-    assert.match(body.instructions, /never attribute them to the author/i);
+    assert.match(body.instructions, /JOURNAL_OWNER is the only summary subject/i);
+    assert.match(body.instructions, /context-only message is never evidence/i);
+    assert.match(body.instructions, /If ownership is ambiguous, omit the claim/i);
     assert.match(body.instructions, /800 characters/i);
     assert.equal(
       (requests[0]?.init.headers as Record<string, string>).Authorization,
