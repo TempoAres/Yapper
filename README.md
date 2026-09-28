@@ -50,6 +50,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - One-time `/xp roles sync-all` catch-up for every current member with stored XP.
 - Public `/rewards` list with colored role mentions and required levels, with
   notifications explicitly suppressed.
+- Per-server glossary with administrator-only `/glossary add|list` management
+  and public, case-insensitive `/g` lookups.
 - Stackable level-role catch-up after message XP, admin XP, or manual sync.
 - In-channel announcements after message XP grants a new reward role; the
   member is pinged once while every displayed role mention stays silent.
@@ -307,6 +309,22 @@ time it pings only the reminder creator in the channel where the reminder was
 set. A member can keep up to ten pending reminders per server. Reminders survive
 bot and VPS restarts, and temporary Discord delivery failures are retried with
 increasing delays.
+
+## Server glossary
+
+Administrators can add or replace definitions and privately list every saved
+abbreviation:
+
+```text
+/glossary add abbreviation:MS definition:Main Storage (Primary place to store items in your world)
+/glossary list
+```
+
+Anyone can use `/g abbreviation:MS` to receive only the saved definition.
+Abbreviations are normalized for case-insensitive lookup, so `ms` and `MS`
+resolve to the same server-specific entry. Definitions are capped at 1,500
+characters, survive bot restarts, and are sent with all Discord mentions
+disabled.
 
 ## Private daily journal
 

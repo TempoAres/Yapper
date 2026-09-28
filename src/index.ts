@@ -14,6 +14,7 @@ import { PostgresEmojiService } from "./database/emoji-service.js";
 import { PostgresReminderService } from "./database/reminder-service.js";
 import { PostgresLeaderboardAnnouncementDeliveryService } from "./database/leaderboard-announcement-service.js";
 import { PostgresJournalService } from "./database/journal-service.js";
+import { PostgresGlossaryService } from "./database/glossary-service.js";
 import { DiscordRoleRewardCoordinator } from "./bot/role-reward-coordinator.js";
 import {
   loadBotConfig,
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
     const emojiService = new PostgresEmojiService(pool);
     const reminderService = new PostgresReminderService(pool);
     const journalService = new PostgresJournalService(pool);
+    const glossaryService = new PostgresGlossaryService(pool);
     const journalConfig = loadJournalConfig();
     const leaderboardAnnouncementDeliveryService =
       new PostgresLeaderboardAnnouncementDeliveryService(pool);
@@ -86,6 +88,7 @@ async function main(): Promise<void> {
         emojiService,
         reminderService,
         journalService,
+        glossaryService,
         journalConfig: {
           targetUserId: journalConfig.targetUserId,
           summarizationConfigured: Boolean(journalConfig.openAiApiKey),

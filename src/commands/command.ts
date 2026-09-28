@@ -13,6 +13,7 @@ import type { ReactionService } from "../services/reactions/reaction-service.js"
 import type { EmojiService } from "../services/emoji/emoji-service.js";
 import type { ReminderService } from "../services/reminders/reminder-service.js";
 import type { JournalService } from "../services/journal/journal-service.js";
+import type { GlossaryService } from "../services/glossary/glossary-service.js";
 
 export interface JournalCommandConfig {
   targetUserId: string | undefined;
@@ -31,6 +32,7 @@ export interface CommandContext {
   emojiService: EmojiService;
   reminderService: ReminderService;
   journalService: JournalService;
+  glossaryService: GlossaryService;
   journalConfig: JournalCommandConfig;
 }
 

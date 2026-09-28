@@ -38,6 +38,7 @@ const commandGroups = [
   },
   { name: "Personal progress", commands: "/rank, /xp info" },
   { name: "Level rewards", commands: "/rewards" },
+  { name: "Glossary", commands: "/g abbreviation:<term>" },
   {
     name: "Other",
     commands: "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>",

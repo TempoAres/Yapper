@@ -23,6 +23,7 @@ The migrations create:
 - `emoji_user_daily_totals` (period user rankings)
 - `emoji_usage_daily_totals` (period emoji rankings)
 - `leaderboard_announcement_deliveries` (restart-safe reset announcements)
+- `glossary_entries` (per-server abbreviations, definitions, and admin audit IDs)
 - `personal_journal_sessions` and `personal_journal_messages` (temporary,
   backup-excluded journal delivery state and private message text)
 

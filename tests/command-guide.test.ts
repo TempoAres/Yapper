@@ -28,6 +28,7 @@ describe("command guide", () => {
         "Reminders",
         "Personal progress",
         "Level rewards",
+        "Glossary",
         "Other",
       ],
     );
@@ -39,6 +40,8 @@ describe("command guide", () => {
     assert.match(json.fields?.[3]?.value ?? "", /`\/wins daily`/);
     assert.match(json.fields?.[6]?.value ?? "", /`\/reset info`/);
     assert.match(json.fields?.[7]?.value ?? "", /`\/reminder set`/);
+    const glossary = json.fields?.find((field) => field.name === "Glossary");
+    assert.match(glossary?.value ?? "", /`\/g abbreviation:<term>`/);
     const other = json.fields?.find((field) => field.name === "Other");
     assert.match(other?.value ?? "", /`\?g <query>`/);
     assert.doesNotMatch(
