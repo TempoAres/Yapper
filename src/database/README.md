@@ -24,6 +24,7 @@ The migrations create:
 - `emoji_usage_daily_totals` (period emoji rankings)
 - `leaderboard_announcement_deliveries` (restart-safe reset announcements)
 - `glossary_entries` (per-server abbreviations, definitions, and admin audit IDs)
+- `afk_statuses` (temporary AFK reasons, grace times, and safe nickname restoration)
 - `personal_journal_sessions` and `personal_journal_messages` (temporary,
   backup-excluded journal delivery state and private message text)
 

@@ -20,6 +20,7 @@ import { registerJournalListener } from "./journal-listener.js";
 import { registerMessageXpListener } from "./message-xp-listener.js";
 import { registerMessageEmojiListener } from "./message-emoji-listener.js";
 import { registerReactionListener } from "./reaction-listener.js";
+import { registerAfkListener } from "./afk-listener.js";
 
 export async function startBot(
   config: BotConfig,
@@ -44,6 +45,7 @@ export async function startBot(
     context.roleRewardCoordinator,
   );
   registerGoogleSearchListener(client);
+  registerAfkListener(client, context.afkService);
   registerMessageEmojiListener(client, context.emojiService);
   if (context.journalConfig.targetUserId) {
     registerJournalListener(

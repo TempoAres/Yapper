@@ -4,6 +4,7 @@ import type {
   EmojiService,
   EmojiUsageCount,
 } from "../services/emoji/emoji-service.js";
+import { isAfkCommand } from "./afk-listener.js";
 
 const customEmojiPattern = /<a?:[A-Za-z0-9_]{2,32}:(\d{17,20})>/g;
 const unicodeEmojiPattern =
@@ -54,6 +55,10 @@ export async function handleMessageEmojiUsage(
   emojiService: EmojiService,
 ): Promise<number> {
   if (!isSupportedUserMessage(message)) {
+    return 0;
+  }
+
+  if (isAfkCommand(message.content)) {
     return 0;
   }
 
