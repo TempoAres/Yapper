@@ -10,6 +10,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/ping`, which replies with `Yap.`
 - `/cmd`, which lists every user-facing command by category.
 - `?g <query>`, which replies with a safely encoded Google search link.
+- `?afk [reason]`, which sets a persistent AFK status, adds a safe nickname
+  marker when permissions allow, and tells members who mention an AFK user.
 - Image-based `/rank [user]` cards for member level, rank, XP, and progress.
 - `/xp info [user]` with the level formula and progress details.
 - PostgreSQL migrations that run safely once and use an advisory lock.
@@ -66,9 +68,10 @@ simple architecture intended to be approachable for a first-time bot developer.
   and a deliberately guarded disaster-recovery command.
 
 Yapper reads message content only long enough to decide whether a message is
-meaningful and repeated, detect `?g`, and count eligible emoji. It stores a
+meaningful and repeated, detect prefix commands, and count eligible emoji. It stores a
 temporary one-way hash for duplicate filtering; PostgreSQL receives IDs,
-timestamps, source type, XP amounts, emoji keys, and emoji counts only. Message
+timestamps, source type, XP amounts, emoji keys, and emoji counts only. AFK
+reasons are retained only while their author remains AFK. Message
 text, images, and attachments are never downloaded or stored. Reminder text is
 the deliberate exception: Yapper stores it until the reminder is delivered or
 cancelled because the future ping could not work without it.
@@ -205,7 +208,7 @@ Run Yapper in watch mode:
 pnpm dev
 ```
 
-Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `/timestamp`, `/rank`, `/xp info`,
+Then test `/ping`, `/cmd`, `?g Eiffel Tower`, `?afk lunch`, `/timestamp`, `/rank`, `/xp info`,
 `/lb all`, `/lbs`, `/xplb`, and `/react received` in the private server.
 Send a meaningful message, wait at least 30 seconds, and use `/rank` again to
 confirm that 15-40 XP was added.
@@ -325,6 +328,15 @@ Abbreviations are normalized for case-insensitive lookup, so `ms` and `MS`
 resolve to the same server-specific entry. Definitions are capped at 1,500
 characters, survive bot restarts, and are sent with all Discord mentions
 disabled.
+
+## AFK statuses
+
+Use `?afk` or `?afk reason` to mark yourself away. Yapper adds `[AFK]` to the
+member nickname when its role hierarchy permits it and shows the saved reason
+when another member mentions them. AFK notices do not generate a second ping.
+Speaking again after the 30-second goodbye grace period clears the status and
+restores the original nickname, unless someone changed that nickname while the
+member was away.
 
 ## Private daily journal
 

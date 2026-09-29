@@ -41,7 +41,8 @@ const commandGroups = [
   { name: "Glossary", commands: "/g abbreviation:<term>" },
   {
     name: "Other",
-    commands: "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>",
+    commands:
+      "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>, ?afk [reason]",
   },
 ] as const;
 

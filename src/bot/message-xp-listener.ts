@@ -13,6 +13,7 @@ import {
 } from "../services/xp/message-xp-tracker.js";
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 import { isGoogleSearchCommand } from "./google-search-listener.js";
+import { isAfkCommand } from "./afk-listener.js";
 
 function determineSource(message: Message<true>): MessageXpInput["source"] {
   if (message.channel.isThread()) {
@@ -80,7 +81,10 @@ export function registerMessageXpListener(
       return;
     }
 
-    if (isGoogleSearchCommand(message.content)) {
+    if (
+      isGoogleSearchCommand(message.content) ||
+      isAfkCommand(message.content)
+    ) {
       return;
     }
 
