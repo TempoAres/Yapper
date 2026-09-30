@@ -16,6 +16,21 @@ import {
 
 const AFK_NICKNAME_PREFIX = "[AFK] ";
 const MAX_DISCORD_NICKNAME_LENGTH = 32;
+export const AFK_WELCOME_DELETE_MILLISECONDS = 30_000;
+
+interface DeletableMessage {
+  id: string;
+  delete(): Promise<unknown>;
+}
+
+interface DeletionTimer {
+  unref?(): void;
+}
+
+type DeletionScheduler = (
+  callback: () => void,
+  delayMilliseconds: number,
+) => DeletionTimer;
 
 export interface ParsedAfkCommand {
   reason: string;
@@ -64,6 +79,22 @@ function welcomeBack(userId: string): MessageCreateOptions {
     content: `Welcome back, <@${userId}>! I removed your AFK status.`,
     allowedMentions: { parse: [], users: [userId] },
   };
+}
+
+export function scheduleAfkWelcomeDeletion(
+  message: DeletableMessage,
+  schedule: DeletionScheduler = (callback, delayMilliseconds) =>
+    setTimeout(callback, delayMilliseconds),
+): void {
+  const timer = schedule(() => {
+    void message.delete().catch((error: unknown) => {
+      console.warn(
+        `Could not delete AFK welcome-back message ${message.id}:`,
+        error,
+      );
+    });
+  }, AFK_WELCOME_DELETE_MILLISECONDS);
+  timer.unref?.();
 }
 
 export function createAfkMentionNotice(
@@ -238,7 +269,10 @@ export async function handleAfkMessage(
 
   if (cleared) {
     await restoreAfkNickname(message.member, cleared);
-    await message.channel.send(welcomeBack(message.author.id));
+    const welcomeMessage = await message.channel.send(
+      welcomeBack(message.author.id),
+    );
+    scheduleAfkWelcomeDeletion(welcomeMessage);
   }
 
   const mentionedUserIds = [...message.mentions.users.keys()].filter(
