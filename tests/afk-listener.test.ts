@@ -3,11 +3,13 @@ import { describe, it } from "node:test";
 import { MessageType, type GuildMember, type Message } from "discord.js";
 
 import {
+  AFK_WELCOME_DELETE_MILLISECONDS,
   createAfkMentionNotice,
   createAfkNickname,
   handleAfkMessage,
   isAfkCommand,
   parseAfkCommand,
+  scheduleAfkWelcomeDeletion,
 } from "../src/bot/afk-listener.js";
 import {
   AFK_CLEAR_GRACE_MILLISECONDS,
@@ -121,6 +123,10 @@ function fakeMessage(input: {
     channel: {
       send: async (response: unknown) => {
         input.sent.push(response);
+        return {
+          id: `sent-${input.sent.length}`,
+          delete: async () => undefined,
+        };
       },
     },
   } as unknown as Message;
@@ -144,6 +150,39 @@ describe("AFK listener", () => {
         .length,
       32,
     );
+  });
+
+  it("deletes only a scheduled welcome-back message after 30 seconds", async () => {
+    let scheduledCallback: (() => void) | undefined;
+    let scheduledDelay: number | undefined;
+    let unrefCalled = false;
+    let deleted = false;
+
+    scheduleAfkWelcomeDeletion(
+      {
+        id: "welcome-1",
+        delete: async () => {
+          deleted = true;
+        },
+      },
+      (callback, delayMilliseconds) => {
+        scheduledCallback = callback;
+        scheduledDelay = delayMilliseconds;
+        return {
+          unref: () => {
+            unrefCalled = true;
+          },
+        };
+      },
+    );
+
+    assert.equal(scheduledDelay, AFK_WELCOME_DELETE_MILLISECONDS);
+    assert.equal(unrefCalled, true);
+    assert.equal(deleted, false);
+    assert.ok(scheduledCallback);
+    scheduledCallback();
+    await Promise.resolve();
+    assert.equal(deleted, true);
   });
 
   it("persists the reason and applies the AFK nickname", async () => {

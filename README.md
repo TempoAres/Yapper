@@ -336,7 +336,8 @@ member nickname when its role hierarchy permits it and shows the saved reason
 when another member mentions them. AFK notices do not generate a second ping.
 Speaking again after the 30-second goodbye grace period clears the status and
 restores the original nickname, unless someone changed that nickname while the
-member was away.
+member was away. The welcome-back confirmation deletes itself after 30 seconds
+to keep active channels tidy.
 
 ## Private daily journal
 
