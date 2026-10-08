@@ -14,6 +14,7 @@ import {
 import type { RoleRewardCoordinator } from "../services/roles/role-sync.js";
 import { isGoogleSearchCommand } from "./google-search-listener.js";
 import { isAfkCommand } from "./afk-listener.js";
+import { isCalculatorCommand } from "./calculator-listener.js";
 
 function determineSource(message: Message<true>): MessageXpInput["source"] {
   if (message.channel.isThread()) {
@@ -83,7 +84,8 @@ export function registerMessageXpListener(
 
     if (
       isGoogleSearchCommand(message.content) ||
-      isAfkCommand(message.content)
+      isAfkCommand(message.content) ||
+      isCalculatorCommand(message.content)
     ) {
       return;
     }

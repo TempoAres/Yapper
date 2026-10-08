@@ -21,6 +21,7 @@ import { registerMessageXpListener } from "./message-xp-listener.js";
 import { registerMessageEmojiListener } from "./message-emoji-listener.js";
 import { registerReactionListener } from "./reaction-listener.js";
 import { registerAfkListener } from "./afk-listener.js";
+import { registerCalculatorListener } from "./calculator-listener.js";
 
 export async function startBot(
   config: BotConfig,
@@ -45,6 +46,7 @@ export async function startBot(
     context.roleRewardCoordinator,
   );
   registerGoogleSearchListener(client);
+  registerCalculatorListener(client);
   registerAfkListener(client, context.afkService);
   registerMessageEmojiListener(client, context.emojiService);
   if (context.journalConfig.targetUserId) {

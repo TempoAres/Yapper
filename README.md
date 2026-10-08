@@ -10,6 +10,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/ping`, which replies with `Yap.`
 - `/cmd`, which lists every user-facing command by category.
 - `?g <query>`, which replies with a safely encoded Google search link.
+- `?calc <expression>`, a safe basic calculator with `pi`, parentheses, and
+  normal multiplication/division-before-addition/subtraction precedence.
 - `?afk [reason]`, which sets a persistent AFK status, adds a safe nickname
   marker when permissions allow, and tells members who mention an AFK user.
 - Image-based `/rank [user]` cards for member level, rank, XP, and progress.

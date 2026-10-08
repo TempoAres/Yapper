@@ -5,6 +5,7 @@ import type {
   EmojiUsageCount,
 } from "../services/emoji/emoji-service.js";
 import { isAfkCommand } from "./afk-listener.js";
+import { isCalculatorCommand } from "./calculator-listener.js";
 
 const customEmojiPattern = /<a?:[A-Za-z0-9_]{2,32}:(\d{17,20})>/g;
 const unicodeEmojiPattern =
@@ -58,7 +59,10 @@ export async function handleMessageEmojiUsage(
     return 0;
   }
 
-  if (isAfkCommand(message.content)) {
+  if (
+    isAfkCommand(message.content) ||
+    isCalculatorCommand(message.content)
+  ) {
     return 0;
   }
 
