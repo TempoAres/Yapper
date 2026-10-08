@@ -5,6 +5,7 @@ import type { Message } from "discord.js";
 import {
   CalculatorExpressionError,
   calculateExpression,
+  createCalculatorSyntaxHelp,
   formatCalculationResult,
   handleCalculatorMessage,
   isCalculatorCommand,
@@ -39,8 +40,18 @@ describe("calculator listener", () => {
 
   it("uses normal operator precedence and left associativity", () => {
     assert.equal(calculateExpression("2 + 3 * 4"), 14);
+    assert.equal(calculateExpression("2 + 3 ^ 2 * 4"), 38);
     assert.equal(calculateExpression("20 / 5 * 2"), 8);
     assert.equal(calculateExpression("20 - 5 - 3"), 12);
+  });
+
+  it("supports right-associative exponents and signed powers", () => {
+    assert.equal(calculateExpression("5 ^ 2"), 25);
+    assert.equal(calculateExpression("2 ^ 3 ^ 2"), 512);
+    assert.equal(calculateExpression("-2 ^ 2"), -4);
+    assert.equal(calculateExpression("(-2) ^ 2"), 4);
+    assert.equal(calculateExpression("2 ^ -2"), 0.25);
+    assert.equal(calculateExpression("9 ^ .5"), 3);
   });
 
   it("supports pi, parentheses, decimals, and unary signs", () => {
@@ -87,6 +98,20 @@ describe("calculator listener", () => {
     ]);
   });
 
+  it("shows general syntax tips when ?calc has no expression", async () => {
+    const sent: unknown[] = [];
+
+    assert.equal(
+      await handleCalculatorMessage(fakeMessage({ content: "?calc   ", sent })),
+      true,
+    );
+    assert.deepEqual(sent, [createCalculatorSyntaxHelp()]);
+    const help = createCalculatorSyntaxHelp().content;
+    assert.match(help, /`\^` exponent/);
+    assert.match(help, /parentheses → exponents → multiplication\/division/);
+    assert.match(help, /`\?calc 5 \^ 2`/);
+  });
+
   it("returns a useful example for an invalid expression", async () => {
     const sent: unknown[] = [];
 
@@ -97,7 +122,7 @@ describe("calculator listener", () => {
     assert.deepEqual(sent, [
       {
         content:
-          "Division by zero is not allowed. Try something like `?calc 2 + 3 * pi`.",
+          "Division by zero is not allowed. Try something like `?calc 2 + 3 * pi` or `?calc 5 ^ 2`.",
         allowedMentions: { parse: [] },
       },
     ]);

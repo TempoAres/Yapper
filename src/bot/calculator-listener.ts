@@ -46,7 +46,7 @@ class ExpressionParser {
   }
 
   private parseTerm(): number {
-    let value = this.parseFactor();
+    let value = this.parseUnary();
 
     while (true) {
       this.skipWhitespace();
@@ -57,7 +57,7 @@ class ExpressionParser {
       }
 
       this.index += 1;
-      const right = this.parseFactor();
+      const right = this.parseUnary();
 
       if (operator === "/" && right === 0) {
         throw new CalculatorExpressionError("Division by zero is not allowed.");
@@ -68,17 +68,32 @@ class ExpressionParser {
     }
   }
 
-  private parseFactor(): number {
+  private parseUnary(): number {
     this.skipWhitespace();
     const operator = this.expression[this.index];
 
     if (operator === "+" || operator === "-") {
       this.index += 1;
-      const value = this.parseFactor();
+      const value = this.parseUnary();
       return operator === "-" ? -value : value;
     }
 
-    return this.parsePrimary();
+    return this.parsePower();
+  }
+
+  private parsePower(): number {
+    const base = this.parsePrimary();
+    this.skipWhitespace();
+
+    if (this.expression[this.index] !== "^") {
+      return base;
+    }
+
+    this.index += 1;
+    const exponent = this.parseUnary();
+    const value = base ** exponent;
+    this.assertFinite(value);
+    return value;
   }
 
   private parsePrimary(): number {
@@ -127,6 +142,12 @@ class ExpressionParser {
   }
 
   private assertFinite(value: number): void {
+    if (Number.isNaN(value)) {
+      throw new CalculatorExpressionError(
+        "That calculation does not have a real-number result.",
+      );
+    }
+
     if (!Number.isFinite(value)) {
       throw new CalculatorExpressionError("The result is too large to display.");
     }
@@ -165,6 +186,23 @@ export function formatCalculationResult(value: number): string {
   return Number.parseFloat(value.toPrecision(15)).toString();
 }
 
+export function createCalculatorSyntaxHelp(): {
+  content: string;
+  allowedMentions: { parse: [] };
+} {
+  return {
+    content: [
+      "**Calculator syntax**",
+      "Use `?calc <expression>`",
+      "Operators: `+` add · `-` subtract · `*` multiply · `/` divide · `^` exponent",
+      "Other: `pi`, decimal points, and parentheses `( )`",
+      "Order: parentheses → exponents → multiplication/division → addition/subtraction",
+      "Examples: `?calc 2 + 3 * pi` · `?calc (10 - 2) / 4` · `?calc 5 ^ 2`",
+    ].join("\n"),
+    allowedMentions: { parse: [] },
+  };
+}
+
 export async function handleCalculatorMessage(
   message: Message,
 ): Promise<boolean> {
@@ -177,8 +215,14 @@ export async function handleCalculatorMessage(
     return false;
   }
 
+  const expression = message.content.slice(5).trim();
+
+  if (!expression) {
+    await message.channel.send(createCalculatorSyntaxHelp());
+    return true;
+  }
+
   try {
-    const expression = message.content.slice(5);
     const result = formatCalculationResult(calculateExpression(expression));
     await message.channel.send({
       content: `**Result:** \`${result}\``,
@@ -190,7 +234,7 @@ export async function handleCalculatorMessage(
     }
 
     await message.channel.send({
-      content: `${error.message} Try something like \`?calc 2 + 3 * pi\`.`,
+      content: `${error.message} Try something like \`?calc 2 + 3 * pi\` or \`?calc 5 ^ 2\`.`,
       allowedMentions: { parse: [] },
     });
   }
