@@ -44,6 +44,7 @@ describe("command guide", () => {
     assert.match(glossary?.value ?? "", /`\/g abbreviation:<term>`/);
     const other = json.fields?.find((field) => field.name === "Other");
     assert.match(other?.value ?? "", /`\?g <query>`/);
+    assert.match(other?.value ?? "", /`\?calc <expression>`/);
     assert.match(other?.value ?? "", /`\?afk \[reason\]`/);
     assert.doesNotMatch(
       json.fields?.map((field) => field.value).join("\n") ?? "",

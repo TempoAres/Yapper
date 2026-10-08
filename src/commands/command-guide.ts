@@ -42,7 +42,7 @@ const commandGroups = [
   {
     name: "Other",
     commands:
-      "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>, ?afk [reason]",
+      "/timestamp date:<date> time:<time>, /ping, /cmd, ?g <query>, ?calc <expression>, ?afk [reason]",
   },
 ] as const;
 
