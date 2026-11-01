@@ -91,6 +91,33 @@ async function verify(): Promise<void> {
       `The historical weekly leaderboard returned the wrong record: ${JSON.stringify(weeklyRecords.entries[0])}`,
     );
 
+    const previousMonth = await leaderboardService.getPreviousPage({
+      guildId,
+      scope: "monthly",
+      page: 1,
+      now: new Date("2026-08-11T12:00:00.000Z"),
+    });
+    requireCondition(
+      previousMonth.entries.length === 1 &&
+        previousMonth.entries[0]?.userId === secondUserId &&
+        previousMonth.entries[0].xp === 1000 &&
+        previousMonth.periodStart === "2026-07-01" &&
+        previousMonth.periodEnd === "2026-07-31",
+      "The previous monthly leaderboard included activity outside July.",
+    );
+    const pinnedMonth = await leaderboardService.getPreviousPage({
+      guildId,
+      scope: "monthly",
+      page: 1,
+      now: new Date("2026-10-11T12:00:00.000Z"),
+      periodEnd: "2026-07-31",
+    });
+    requireCondition(
+      JSON.stringify(pinnedMonth.entries) ===
+        JSON.stringify(previousMonth.entries),
+      "Previous leaderboard pagination changed periods after another reset.",
+    );
+
     const reactionService = new PostgresReactionService(pool);
     const reaction = {
       guildId,
@@ -216,36 +243,38 @@ async function verify(): Promise<void> {
 
     const announcementDeliveryService =
       new PostgresLeaderboardAnnouncementDeliveryService(pool);
-    const announcement = {
-      guildId,
-      scope: "daily" as const,
-      resetAt: new Date("2026-08-12T22:00:00.000Z"),
-    };
-    requireCondition(
-      await announcementDeliveryService.claim({
+    for (const scope of ["daily", "weekly", "monthly", "yearly"] as const) {
+      const announcement = {
+        guildId,
+        scope,
+        resetAt: new Date("2026-08-12T22:00:00.000Z"),
+      };
+      requireCondition(
+        await announcementDeliveryService.claim({
+          ...announcement,
+          now: new Date("2026-08-12T21:59:15.000Z"),
+        }),
+        `The final ${scope} leaderboard announcement could not be claimed.`,
+      );
+      requireCondition(
+        !(await announcementDeliveryService.claim({
+          ...announcement,
+          now: new Date("2026-08-12T21:59:20.000Z"),
+        })),
+        `A final ${scope} leaderboard announcement was claimed twice.`,
+      );
+      await announcementDeliveryService.markDelivered({
         ...announcement,
-        now: new Date("2026-08-12T21:59:15.000Z"),
-      }),
-      "The final leaderboard announcement could not be claimed.",
-    );
-    requireCondition(
-      !(await announcementDeliveryService.claim({
-        ...announcement,
-        now: new Date("2026-08-12T21:59:20.000Z"),
-      })),
-      "A final leaderboard announcement was claimed twice.",
-    );
-    await announcementDeliveryService.markDelivered({
-      ...announcement,
-      deliveredAt: new Date("2026-08-12T21:59:20.000Z"),
-    });
-    requireCondition(
-      !(await announcementDeliveryService.claim({
-        ...announcement,
-        now: new Date("2026-08-12T21:59:55.000Z"),
-      })),
-      "A delivered leaderboard announcement was reclaimed.",
-    );
+        deliveredAt: new Date("2026-08-12T21:59:20.000Z"),
+      });
+      requireCondition(
+        !(await announcementDeliveryService.claim({
+          ...announcement,
+          now: new Date("2026-08-12T21:59:55.000Z"),
+        })),
+        `A delivered ${scope} leaderboard announcement was reclaimed.`,
+      );
+    }
 
     console.log("Database integration verified successfully.");
   } finally {

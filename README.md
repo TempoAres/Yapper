@@ -31,6 +31,7 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/lbs` for the current daily, weekly, and monthly top three in one compact
   no-ping embed.
 - `/xplb [page]` for the paginated all-time XP leaderboard.
+- `/last daily|weekly|monthly|yearly` for the previous completed XP leaderboard.
 - `/top daily|weekly|monthly|yearly` for each member's best historical activity period.
 - `/wins daily|weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
 - `/react received|given` leaderboards with deduplicated reaction tracking.
@@ -40,7 +41,7 @@ simple architecture intended to be approachable for a first-time bot developer.
   rank colors, progress bars, and requester-bound Top 100 pagination.
 - Europe/Berlin calendar boundaries for daily, weekly, monthly, and yearly periods.
 - `/reset info` with timezone-aware Discord countdowns for every period reset.
-- Automatic final daily, weekly, and yearly leaderboards one minute before
+- Automatic final daily, weekly, monthly, and yearly leaderboards one minute before
   their Europe/Berlin reset.
 - `/timestamp date:<date> time:<time>` for exact and relative Discord timestamps.
 - An administrator-only `/journal` workflow that records one explicitly
@@ -240,6 +241,20 @@ mentions are rendered without sending notifications.
 `/xplb` shows the separate all-time XP leaderboard. It accepts an optional
 `page` from 1 to 10 and uses the same requester-bound pagination buttons.
 
+`/last` shows the XP rankings for the previous completed calendar period:
+
+```text
+/last daily
+/last weekly
+/last monthly
+/last yearly
+```
+
+For example, `/last monthly` in November shows October's final XP totals. Each
+subcommand accepts an optional `page` from 1 to 10. The date window stays fixed
+when using the pagination buttons, even after another reset. Periods before
+Yapper's launch show an empty leaderboard.
+
 Historical records rank every member by their personal best period so far:
 
 ```text
@@ -288,11 +303,11 @@ All-time and historical-record leaderboards do not reset.
 
 When `LEADERBOARD_ANNOUNCEMENT_CHANNEL_ID` is configured, Yapper posts the
 first page of the final daily leaderboard at 23:59 Europe/Berlin every night.
-It also posts the final weekly board at 23:59 on Sundays and the final yearly
-board at 23:59 on December 31. These image announcements contain no navigation
+It also posts the final weekly board at 23:59 on Sundays, the final monthly
+board at 23:59 on the last day of each month, and the final yearly board at
+23:59 on December 31. These image announcements contain no navigation
 buttons or pings. Persistent delivery state and a stable Discord nonce prevent
-duplicates if the bot restarts or retries during the final minute. Monthly
-announcements are not enabled.
+duplicates if the bot restarts or retries during the final minute.
 
 ## Timestamps and reminders
 

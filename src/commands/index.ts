@@ -5,6 +5,7 @@ import { journalCommand } from "./journal.js";
 import { glossaryCommand, glossaryLookupCommand } from "./glossary.js";
 import {
   leaderboardCommand,
+  lastLeaderboardCommand,
   topCommand,
   xpLeaderboardCommand,
 } from "./leaderboard.js";
@@ -28,6 +29,7 @@ export const commands: readonly BotCommand[] = [
   glossaryLookupCommand,
   journalCommand,
   leaderboardCommand,
+  lastLeaderboardCommand,
   leaderboardSummaryCommand,
   xpLeaderboardCommand,
   topCommand,

@@ -15,6 +15,10 @@ const commandGroups = [
   },
   { name: "XP leaderboard", commands: "/xplb" },
   {
+    name: "Previous leaderboards",
+    commands: "/last daily, /last weekly, /last monthly, /last yearly",
+  },
+  {
     name: "Activity records",
     commands: "/top daily, /top weekly, /top monthly, /top yearly",
   },

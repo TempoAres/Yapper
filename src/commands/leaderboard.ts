@@ -32,7 +32,7 @@ import { calculateLevelProgress } from "../services/xp/level-curve.js";
 
 const buttonPrefix = "yapper:lb";
 type LeaderboardButtonAction = "first" | "previous" | "next" | "last";
-type LeaderboardView = "level" | "record" | "xp";
+type LeaderboardView = "level" | "record" | "xp" | "previous";
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
@@ -91,6 +91,14 @@ export function createLeaderboardImageRows(
       };
     }
 
+    if (view === "previous") {
+      return {
+        rank: entry.rank,
+        userId: entry.userId,
+        detail: `XP: +${formatXp(entry.xp)}`,
+      };
+    }
+
     const progress = calculateLevelProgress(entry.allTimeXp);
 
     if (page.scope !== "all") {
@@ -119,8 +127,10 @@ function createButtonCustomId(
   scope: LeaderboardScope,
   page: number,
   requesterId: string,
+  periodEnd?: string,
 ): string {
-  return `${buttonPrefix}:${action}:${view}:${scope}:${page}:${requesterId}`;
+  const period = view === "previous" ? `:${periodEnd}` : "";
+  return `${buttonPrefix}:${action}:${view}:${scope}:${page}:${requesterId}${period}`;
 }
 
 export interface LeaderboardButtonRequest {
@@ -129,12 +139,13 @@ export interface LeaderboardButtonRequest {
   scope: LeaderboardScope;
   page: number;
   requesterId: string;
+  periodEnd?: string;
 }
 
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp):(all|daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})$/.exec(
+  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp|previous):(all|daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})(?::(\d{4}-\d{2}-\d{2}))?$/.exec(
     customId,
   );
 
@@ -143,6 +154,7 @@ export function parseLeaderboardButton(
   const scope = match?.[3];
   const rawPage = match?.[4];
   const requesterId = match?.[5];
+  const periodEnd = match?.[6];
 
   if (!action || !scope || !rawPage || !requesterId) {
     return null;
@@ -154,8 +166,9 @@ export function parseLeaderboardButton(
     !Number.isInteger(page) ||
     page < 1 ||
     page > 10 ||
-    (view === "record" && scope === "all") ||
-    (view === "xp" && scope !== "all")
+    ((view === "record" || view === "previous") && scope === "all") ||
+    (view === "xp" && scope !== "all") ||
+    (view === "previous") !== (periodEnd !== undefined)
   ) {
     return null;
   }
@@ -166,6 +179,7 @@ export function parseLeaderboardButton(
     scope: scope as LeaderboardScope,
     page,
     requesterId,
+    ...(periodEnd !== undefined ? { periodEnd } : {}),
   };
 }
 
@@ -178,10 +192,17 @@ function buildNavigationRow(
   const previousPage = Math.max(firstPage, page.page - 1);
   const nextPage = Math.min(page.totalPages, page.page + 1);
 
+  if (view === "previous" && !page.periodEnd) {
+    throw new Error("A previous leaderboard has no period end date.");
+  }
+  const periodEnd = page.periodEnd ?? undefined;
+
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(
-        createButtonCustomId("first", view, page.scope, firstPage, requesterId),
+        createButtonCustomId(
+          "first", view, page.scope, firstPage, requesterId, periodEnd,
+        ),
       )
       .setLabel("First")
       .setEmoji("⏮️")
@@ -195,6 +216,7 @@ function buildNavigationRow(
           page.scope,
           previousPage,
           requesterId,
+          periodEnd,
         ),
       )
       .setLabel("Back")
@@ -203,7 +225,9 @@ function buildNavigationRow(
       .setDisabled(page.page === firstPage),
     new ButtonBuilder()
       .setCustomId(
-        createButtonCustomId("next", view, page.scope, nextPage, requesterId),
+        createButtonCustomId(
+          "next", view, page.scope, nextPage, requesterId, periodEnd,
+        ),
       )
       .setLabel("Next")
       .setEmoji("▶️")
@@ -217,6 +241,7 @@ function buildNavigationRow(
           page.scope,
           page.totalPages,
           requesterId,
+          periodEnd,
         ),
       )
       .setLabel("Last")
@@ -249,7 +274,9 @@ export async function buildLeaderboardResponse(
       ? `${scopeLabels[page.scope]} Activity Records`
       : view === "xp"
         ? "All-time XP Leaderboard"
-      : `${scopeLabels[page.scope]} Level Leaderboard`;
+        : view === "previous"
+          ? `Last ${scopeLabels[page.scope]} XP Leaderboard`
+          : `${scopeLabels[page.scope]} Level Leaderboard`;
   const embed = new EmbedBuilder()
     .setColor(
       view === "record"
@@ -285,6 +312,7 @@ async function loadPage(
     view: LeaderboardView;
     scope: LeaderboardScope;
     page: number;
+    periodEnd?: string;
   },
 ): Promise<LeaderboardPage> {
   if (input.view === "record") {
@@ -293,6 +321,16 @@ async function loadPage(
       scope: input.scope as LeaderboardRecordScope,
       page: input.page,
       now: new Date(),
+    });
+  }
+
+  if (input.view === "previous") {
+    return context.leaderboardService.getPreviousPage({
+      guildId: input.guildId,
+      scope: input.scope as LeaderboardRecordScope,
+      page: input.page,
+      now: new Date(),
+      ...(input.periodEnd !== undefined ? { periodEnd: input.periodEnd } : {}),
     });
   }
 
@@ -315,7 +353,12 @@ export async function handleLeaderboardButton(
   }
 
   if (interaction.user.id !== request.requesterId) {
-    const command = request.view === "xp" ? "/xplb" : "/lb all";
+    const command =
+      request.view === "xp"
+        ? "/xplb"
+        : request.view === "previous"
+          ? `/last ${request.scope}`
+          : "/lb all";
 
     await interaction.reply({
       content: `Run \`${command}\` yourself to open controls you can use.`,
@@ -338,6 +381,7 @@ export async function handleLeaderboardButton(
     view: request.view,
     scope: request.scope,
     page: request.page,
+    ...(request.periodEnd !== undefined ? { periodEnd: request.periodEnd } : {}),
   });
   const profiles = await resolveLeaderboardProfiles(
     interaction.client,
@@ -441,6 +485,71 @@ export const leaderboardCommand: BotCommand = {
     );
   },
 };
+
+export const lastLeaderboardCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("last")
+    .setDescription("Show the last completed XP leaderboard.")
+    .addSubcommand((subcommand) =>
+      configurePreviousSubcommand(subcommand, "daily"),
+    )
+    .addSubcommand((subcommand) =>
+      configurePreviousSubcommand(subcommand, "weekly"),
+    )
+    .addSubcommand((subcommand) =>
+      configurePreviousSubcommand(subcommand, "monthly"),
+    )
+    .addSubcommand((subcommand) =>
+      configurePreviousSubcommand(subcommand, "yearly"),
+    ),
+  async execute(interaction, context) {
+    if (!interaction.guildId) {
+      await interaction.reply({
+        content: "Leaderboards can only be used inside a server.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+    const scope = interaction.options.getSubcommand(
+      true,
+    ) as LeaderboardRecordScope;
+    const page = await loadPage(context, {
+      guildId: interaction.guildId,
+      view: "previous",
+      scope,
+      page: interaction.options.getInteger("page") ?? 1,
+    });
+    const profiles = await resolveLeaderboardProfiles(
+      interaction.client,
+      page.entries.map((entry) => entry.userId),
+    );
+    await interaction.editReply(
+      await buildLeaderboardResponse(
+        page, interaction.user.id, "previous", profiles,
+      ),
+    );
+  },
+};
+
+function configurePreviousSubcommand(
+  subcommand: SlashCommandSubcommandBuilder,
+  scope: LeaderboardRecordScope,
+): SlashCommandSubcommandBuilder {
+  return subcommand
+    .setName(scope)
+    .setDescription(
+      `Show XP earned during the last completed ${scopeNouns[scope]}.`,
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("page")
+        .setDescription("Optional page from 1 to 10.")
+        .setMinValue(1)
+        .setMaxValue(10),
+    );
+}
 
 export const xpLeaderboardCommand: BotCommand = {
   data: new SlashCommandBuilder()

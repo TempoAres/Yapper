@@ -20,6 +20,7 @@ describe("command guide", () => {
       [
         "Level leaderboard",
         "XP leaderboard",
+        "Previous leaderboards",
         "Activity records",
         "Leaderboard wins",
         "Reaction leaderboards",
@@ -36,10 +37,11 @@ describe("command guide", () => {
     assert.match(json.fields?.[0]?.value ?? "", /`\/lb daily`/);
     assert.match(json.fields?.[0]?.value ?? "", /`\/lbs`/);
     assert.match(json.fields?.[1]?.value ?? "", /`\/xplb`/);
-    assert.match(json.fields?.[3]?.value ?? "", /`\/wins weekly`/);
-    assert.match(json.fields?.[3]?.value ?? "", /`\/wins daily`/);
-    assert.match(json.fields?.[6]?.value ?? "", /`\/reset info`/);
-    assert.match(json.fields?.[7]?.value ?? "", /`\/reminder set`/);
+    assert.match(json.fields?.[2]?.value ?? "", /`\/last monthly`/);
+    assert.match(json.fields?.[4]?.value ?? "", /`\/wins weekly`/);
+    assert.match(json.fields?.[4]?.value ?? "", /`\/wins daily`/);
+    assert.match(json.fields?.[7]?.value ?? "", /`\/reset info`/);
+    assert.match(json.fields?.[8]?.value ?? "", /`\/reminder set`/);
     const glossary = json.fields?.find((field) => field.name === "Glossary");
     assert.match(glossary?.value ?? "", /`\/g abbreviation:<term>`/);
     const other = json.fields?.find((field) => field.name === "Other");

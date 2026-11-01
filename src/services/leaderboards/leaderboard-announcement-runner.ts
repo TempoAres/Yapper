@@ -14,11 +14,12 @@ import type {
 
 const POLL_INTERVAL_MS = 15_000;
 const ANNOUNCEMENT_LEAD_MS = 60_000;
-const announcementScopes = ["daily", "weekly", "yearly"] as const;
+const announcementScopes = ["daily", "weekly", "monthly", "yearly"] as const;
 
 const scopeLabels: Record<LeaderboardAnnouncementScope, string> = {
   daily: "Daily",
   weekly: "Weekly",
+  monthly: "Monthly",
   yearly: "Yearly",
 };
 

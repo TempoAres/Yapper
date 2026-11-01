@@ -239,3 +239,56 @@ export function calculateLeaderboardPeriod(input: {
     launchLimited,
   };
 }
+
+export function calculatePreviousLeaderboardPeriod(input: {
+  scope: Exclude<LeaderboardScope, "all">;
+  now: Date;
+  timezone: string;
+  launchedAt: Date;
+  periodEnd?: string;
+}): LeaderboardPeriod {
+  const today = getLocalDateParts(input.now, input.timezone);
+  const latestEnd = addDays(naturalPeriod(input.scope, today).start, -1);
+  let end = latestEnd;
+
+  if (input.periodEnd !== undefined) {
+    const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.periodEnd);
+
+    if (!parsed) {
+      throw new RangeError("Previous leaderboard dates must use YYYY-MM-DD.");
+    }
+
+    end = {
+      year: Number(parsed[1]),
+      month: Number(parsed[2]),
+      day: Number(parsed[3]),
+    };
+    const normalized = addDays(end, 0);
+
+    if (
+      toIsoDate(normalized) !== input.periodEnd ||
+      toIsoDate(naturalPeriod(input.scope, end).end) !== input.periodEnd ||
+      input.periodEnd > toIsoDate(latestEnd)
+    ) {
+      throw new RangeError(
+        "Previous leaderboards require a completed calendar period.",
+      );
+    }
+  }
+
+  const period = naturalPeriod(input.scope, end);
+  const naturalStartDate = toIsoDate(period.start);
+  const launchDate = toIsoDate(
+    getLocalDateParts(input.launchedAt, input.timezone),
+  );
+  const launchLimited = launchDate > naturalStartDate;
+
+  return {
+    startDate: launchLimited ? launchDate : naturalStartDate,
+    endDate: toIsoDate(period.end),
+    displayStartDate: naturalStartDate,
+    displayEndDate: toIsoDate(period.end),
+    nextResetAt: localMidnight(addDays(period.end, 1), input.timezone),
+    launchLimited,
+  };
+}
