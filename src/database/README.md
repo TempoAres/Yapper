@@ -48,6 +48,6 @@ reminder text plus delivery state so future pings survive process and VPS restar
 Daily user and emoji totals make all-time and calendar-period image
 leaderboards fast without retaining message text.
 
-Final daily, weekly, and yearly leaderboard announcements use a unique
+Final daily, weekly, monthly, and yearly leaderboard announcements use a unique
 guild/scope/reset row. Delivery claims and Discord nonces prevent a restart or
 retry near midnight from posting the same final leaderboard twice.

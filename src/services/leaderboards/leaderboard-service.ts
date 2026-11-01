@@ -5,7 +5,7 @@ export type LeaderboardScope =
   | "monthly"
   | "yearly";
 export type LeaderboardRecordScope = Exclude<LeaderboardScope, "all">;
-export type LeaderboardKind = "current" | "record";
+export type LeaderboardKind = "current" | "previous" | "record";
 
 export const LEADERBOARD_PAGE_SIZE = 10;
 export const LEADERBOARD_MAX_ENTRIES = 100;
@@ -76,6 +76,15 @@ export interface LeaderboardService {
     scope: LeaderboardRecordScope;
     page: number;
     now: Date;
+  }): Promise<LeaderboardPage>;
+
+  getPreviousPage(input: {
+    guildId: string;
+    scope: LeaderboardRecordScope;
+    page: number;
+    now: Date;
+    /** Keep pagination on this completed period after another reset. */
+    periodEnd?: string;
   }): Promise<LeaderboardPage>;
 
   getResetSchedule(input: {

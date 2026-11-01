@@ -16,6 +16,7 @@ import type {
   LeaderboardResetSchedule,
   LeaderboardService,
 } from "../src/services/leaderboards/leaderboard-service.js";
+import { calculateLeaderboardResetSchedule } from "../src/services/leaderboards/leaderboard-period.js";
 
 const guildId = "939811280657719327";
 const channelId = "1042371032406822942";
@@ -142,6 +143,61 @@ describe("leaderboard announcement scheduling", () => {
     assert.deepEqual(sent, [{ content: "final daily leaderboard" }]);
   });
 
+  it("selects monthly and yearly boards alongside other coinciding resets", () => {
+    for (const [instant, expected] of [
+      ["2026-08-31T21:59:30.000Z", ["daily", "monthly"]],
+      ["2026-12-31T22:59:30.000Z", ["daily", "monthly", "yearly"]],
+    ] as const) {
+      const now = new Date(instant);
+      const resetSchedule = calculateLeaderboardResetSchedule({ now, timezone: "Europe/Berlin" });
+      assert.deepEqual(
+        findDueLeaderboardAnnouncements(resetSchedule, now).map((entry) => entry.scope),
+        expected,
+      );
+    }
+  });
+
+  it("delivers monthly and yearly boards to the configured channel and respects delivery claims", async () => {
+    const now = new Date("2026-12-31T22:59:30.000Z");
+    const loadedScopes: string[] = [];
+    const sent: MessageCreateOptions[] = [];
+    const client = {
+      channels: {
+        fetch: async (id: string) => {
+          assert.equal(id, channelId);
+          return {
+            isSendable: () => true,
+            send: async (message: MessageCreateOptions) => { sent.push(message); },
+          };
+        },
+      },
+    } as unknown as Client;
+    const service = {
+      getResetSchedule: async () => calculateLeaderboardResetSchedule({ now, timezone: "Europe/Berlin" }),
+      getPage: async (input: Parameters<LeaderboardService["getPage"]>[0]) => {
+        assert.equal(input.guildId, guildId);
+        assert.equal(input.page, 1);
+        assert.equal(input.now, now);
+        loadedScopes.push(input.scope);
+        return { ...examplePage(), scope: input.scope };
+      },
+    } as unknown as LeaderboardService;
+    const deliveryService = new FakeDeliveryService();
+    const runner = new LeaderboardAnnouncementRunner(
+      client, service, deliveryService, { guildId, channelId },
+      async ({ page }) => ({ content: `final ${page.scope} leaderboard` }),
+    );
+    assert.equal(await runner.runOnce(now), 3);
+    assert.deepEqual(loadedScopes, ["daily", "monthly", "yearly"]);
+    assert.deepEqual(sent.map((message) => message.content), [
+      "final daily leaderboard", "final monthly leaderboard", "final yearly leaderboard",
+    ]);
+    assert.deepEqual(deliveryService.delivered.map((delivery) => delivery.scope), loadedScopes);
+    deliveryService.allowClaim = false;
+    assert.equal(await runner.runOnce(now), 0);
+    assert.equal(sent.length, 3);
+  });
+
   it("releases a claimed announcement when the channel cannot be used", async () => {
     const client = {
       channels: { fetch: async () => null },
@@ -180,5 +236,22 @@ describe("leaderboard announcement scheduling", () => {
     assert.equal(message.enforceNonce, true);
     assert.equal(message.components, undefined);
     assert.equal(message.files?.length, 1);
+  });
+
+  it("labels monthly and yearly announcements with separate duplicate-protection nonces", async () => {
+    const client = { user: { id: "1534529857285787771" } } as unknown as Client;
+    const messages = [];
+    for (const scope of ["monthly", "yearly"] as const) {
+      const message = await buildLeaderboardAnnouncementMessage(
+        client, { ...examplePage(), scope }, schedule.yearly,
+      );
+      assert.match(message.content ?? "", new RegExp(`Final ${scope} leaderboard`));
+      assert.deepEqual(message.allowedMentions, { parse: [] });
+      assert.equal(message.enforceNonce, true);
+      assert.equal(message.components, undefined);
+      assert.equal(message.files?.length, 1);
+      messages.push(message);
+    }
+    assert.notEqual(messages[0]?.nonce, messages[1]?.nonce);
   });
 });

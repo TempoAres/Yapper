@@ -15,6 +15,7 @@ import {
 import {
   calculateLeaderboardPeriod,
   calculateLeaderboardResetSchedule,
+  calculatePreviousLeaderboardPeriod,
 } from "../services/leaderboards/leaderboard-period.js";
 
 interface GuildSettingsRow {
@@ -382,6 +383,40 @@ export class PostgresLeaderboardService implements LeaderboardService {
       scope: input.scope,
       page: input.page,
       totals,
+      timezone: settings.timezone,
+      periodStart: period.displayStartDate,
+      periodEnd: period.displayEndDate,
+      launchLimited: period.launchLimited,
+      now: input.now,
+    });
+  }
+
+  public async getPreviousPage(input: {
+    guildId: string;
+    scope: LeaderboardRecordScope;
+    page: number;
+    now: Date;
+    periodEnd?: string;
+  }): Promise<LeaderboardPage> {
+    const settings = await this.loadGuildSettings(input.guildId);
+    const period = calculatePreviousLeaderboardPeriod({
+      scope: input.scope,
+      now: input.now,
+      timezone: settings.timezone,
+      launchedAt: settings.launched_at,
+      ...(input.periodEnd !== undefined ? { periodEnd: input.periodEnd } : {}),
+    });
+
+    return this.queryPage({
+      kind: "previous",
+      scope: input.scope,
+      page: input.page,
+      totals: buildCurrentTotalsQuery(
+        input.guildId,
+        input.scope,
+        period.startDate,
+        period.endDate,
+      ),
       timezone: settings.timezone,
       periodStart: period.displayStartDate,
       periodEnd: period.displayEndDate,

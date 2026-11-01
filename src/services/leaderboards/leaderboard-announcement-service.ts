@@ -1,4 +1,8 @@
-export type LeaderboardAnnouncementScope = "daily" | "weekly" | "yearly";
+export type LeaderboardAnnouncementScope =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "yearly";
 
 export interface LeaderboardAnnouncementDelivery {
   guildId: string;
