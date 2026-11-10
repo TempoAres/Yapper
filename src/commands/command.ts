@@ -1,3 +1,4 @@
+import type { Games } from "../services/games/games.js";
 import type {
   ChatInputCommandInteraction,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
@@ -23,6 +24,7 @@ export interface JournalCommandConfig {
 }
 
 export interface CommandContext {
+  games?: Games;
   memberXpService: MemberXpService;
   leaderboardService: LeaderboardService;
   adminXpService: AdminXpService;

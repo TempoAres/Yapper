@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import wordListPath from "word-list";
+import { Games } from "./services/games/games.js";
+import { registerGames } from "./bot/games-listener.js";
 import { startBot } from "./bot/create-bot.js";
 import type { Client } from "discord.js";
 import type { Server } from "node:http";
@@ -32,10 +36,7 @@ import { ReminderRunner } from "./services/reminders/reminder-runner.js";
 import { LeaderboardAnnouncementRunner } from "./services/leaderboards/leaderboard-announcement-runner.js";
 import { JournalRunner } from "./services/journal/journal-runner.js";
 import { OpenAiJournalSummarizer } from "./services/journal/journal-summarizer.js";
-import {
-  startHealthServer,
-  stopHealthServer,
-} from "./health/health-server.js";
+import { startHealthServer, stopHealthServer } from "./health/health-server.js";
 
 async function main(): Promise<void> {
   const botConfig = loadBotConfig();
@@ -77,9 +78,13 @@ async function main(): Promise<void> {
       loadMessageXpConfig(),
     );
     const reactionTracker = new ReactionTracker(reactionService);
+    const games = new Games(
+      new Set(readFileSync(wordListPath, "utf8").split(/\r?\n/)),
+    );
     client = await startBot(
       botConfig,
       {
+        games,
         memberXpService,
         leaderboardService,
         adminXpService,
@@ -101,6 +106,7 @@ async function main(): Promise<void> {
       messageXpTracker,
       reactionTracker,
     );
+    await registerGames(client, games, pool);
     reminderRunner = new ReminderRunner(client, reminderService);
     reminderRunner.start();
 
@@ -120,8 +126,7 @@ async function main(): Promise<void> {
       );
       journalRunner.start();
     }
-    const announcementChannelId =
-      loadLeaderboardAnnouncementConfig().channelId;
+    const announcementChannelId = loadLeaderboardAnnouncementConfig().channelId;
 
     if (announcementChannelId) {
       if (!botConfig.guildId) {
