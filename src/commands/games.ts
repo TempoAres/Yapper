@@ -32,7 +32,7 @@ export const gamesCommand: BotCommand = {
             },
             {
               name: "🎯 Category rush · 60 seconds",
-              value: "`/game categories start`\nFind as many different answers as you can for a random theme. **One answer per message**, including names with spaces like **Wither skeleton**.\n✅ Accepted · 🔁 Already counted",
+              value: "`/game categories start`\nFind as many different answers as you can for a theme. Automatic picks cycle through every category before repeating. Choose your own with `category:`. **One answer per message**, including names with spaces like **Wither skeleton**.\n✅ Accepted · 🔁 Already counted",
             },
             {
               name: "🔢 Counting",
@@ -75,7 +75,12 @@ export const gameCommand: BotCommand = {
         .setName("categories")
         .setDescription("Category rush")
         .addSubcommand((s) =>
-          s.setName("start").setDescription("Start category rush"),
+          s.setName("start").setDescription("Start category rush")
+            .addStringOption(option => option
+              .setName("category")
+              .setDescription("Choose a theme, or leave blank to rotate through all categories")
+              .setRequired(false)
+              .addChoices(...categories.map(category => ({ name: category.name, value: category.name })))),
         )
         .addSubcommand((s) =>
           s.setName("stop").setDescription("Stop category rush"),
@@ -160,7 +165,7 @@ export const gameCommand: BotCommand = {
     }
     await i.deferReply();
     const text = starting
-      ? games.start(i.channelId, game, i.user.id)
+      ? games.start(i.channelId, game, i.user.id, Date.now(), game === "categories" ? i.options.getString("category") ?? undefined : undefined)
       : games.stop(i.channelId, game);
     await i.editReply({
       content:

@@ -672,7 +672,11 @@ reaction meanings, category themes, and stopping rules.
   `apple`; each answer starts with the previous word's last letter. No repeats
   or consecutive turns by the same player. Reactions: ✅ accepted, ❌ invalid,
   🔁 already used, ⏳ wait for another player. Invalid answers leave the chain intact.
-- **Category rush:** a randomly selected curated category, with 60 seconds to
+- **Category rush:** automatic picks rotate through a shuffled cycle of all 12
+  categories in each channel before repeating, with no immediate repeat between
+  cycles. Choose a theme with `/game categories start category:Minecraft mobs`
+  (Discord offers every category as a choice). Explicit picks count toward the
+  current cycle but can be repeated on purpose. Every category gives 60 seconds to
   find different accepted answers together. Repeats add nothing; grey/gray count
   as one answer. ✅ marks accepted answers and 🔁 marks repeats. Multi-word
   answers such as `Wither skeleton` work in one message; capitalization, repeated

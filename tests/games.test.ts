@@ -427,3 +427,77 @@ test("word chain announces each 100-point milestone once and keeps playing", () 
   assert.equal(g.sessionToken("a"), session);
   assert.equal(g.wordchainScore("a", 202), 201);
 });
+
+test("automatic categories visit every theme once per channel before repeating", () => {
+  for (const random of [0, 0.4, 0.999999]) {
+    const g = new Games(new Set(), () => random);
+    const picked: string[] = [];
+    for (let round = 0; round < categories.length * 3; round++) {
+      const text = g.start("a", "categories", "owner", round);
+      const name = /Category rush! \*\*([^*]+)\*\*/.exec(text)?.[1];
+      assert.ok(name);
+      assert.notEqual(name, picked.at(-1));
+      picked.push(name);
+      g.stop("a", "categories");
+    }
+    for (let offset = 0; offset < picked.length; offset += categories.length)
+      assert.deepEqual(new Set(picked.slice(offset, offset + categories.length)), new Set(categories.map(c => c.name)));
+  }
+  const g = create();
+  assert.match(g.start("a", "categories", "u", 0), /Colours/);
+  assert.match(g.start("b", "categories", "u", 0), /Colours/);
+  g.stop("a", "categories");
+  assert.match(g.start("a", "categories", "u", 0), /Planets/);
+});
+
+test("explicit category choices accept every theme and consume that theme from the cycle", () => {
+  for (const category of categories) {
+    const g = create();
+    assert.ok(g.start("a", "categories", "owner", 0, category.name.toUpperCase()).includes(category.name));
+    assert.equal(g.message("a", "u", category.answers[0], 1)?.score, 1);
+    assert.equal(g.expire("a", 59_999), undefined);
+    assert.equal(g.expire("a", 60_000)?.score, 1);
+  }
+  const g = create();
+  assert.match(g.start("a", "categories", "owner", 0, "Colours"), /Colours/);
+  g.stop("a", "categories");
+  assert.match(g.start("a", "categories", "owner", 0, "Colours"), /Colours/);
+  g.stop("a", "categories");
+  assert.match(g.start("a", "categories", "owner", 0), /Planets/);
+  g.stop("a", "categories");
+  assert.match(g.start("a", "categories", "owner", 0, "invalid"), /Unknown category/);
+  assert.equal(g.active("a"), undefined);
+  assert.match(g.start("a", "categories", "owner", 0), /Days and months/);
+});
+
+test("category start dropdown contains all themes and never replaces an active game", async () => {
+  const group = gameCommand.data.toJSON().options!.find(g => g.name === "categories")!;
+  assert.ok("options" in group);
+  const start = group.options!.find(s => s.name === "start")!;
+  assert.ok("options" in start);
+  const option = start.options![0]!;
+  assert.equal(option.name, "category");
+  assert.equal(option.required, false);
+  assert.ok("choices" in option);
+  assert.deepEqual(option.choices?.map(choice => choice.value), categories.map(c => c.name));
+  const g = create();
+  const replies: string[] = [];
+  const interaction = {
+    inGuild: () => true, channelId: "a", user: {id: "ordinary-member"},
+    memberPermissions: {has: () => false},
+    channel: {isSendable: () => true, isThread: () => false},
+    guild: {members: {me: {permissionsIn: () => ({has: () => true})}}},
+    options: {getSubcommandGroup: () => "categories", getSubcommand: () => "start", getString: () => "Minecraft mobs"},
+    async deferReply() {},
+    async editReply(value: {content: string}) { replies.push(value.content); },
+  } as unknown as Parameters<typeof gameCommand.execute>[0];
+  await gameCommand.execute(interaction, {games: g} as Parameters<typeof gameCommand.execute>[1]);
+  assert.match(replies.pop()!, /Minecraft mobs/);
+  assert.equal(g.message("a", "u", "Wither skeleton")?.score, 1);
+  const session = g.sessionToken("a");
+  const before = structuredClone(session);
+  await gameCommand.execute(interaction, {games: g} as Parameters<typeof gameCommand.execute>[1]);
+  assert.match(replies.pop()!, /already playing/);
+  assert.equal(g.sessionToken("a"), session);
+  assert.deepEqual(session, before);
+});

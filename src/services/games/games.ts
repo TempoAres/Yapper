@@ -463,6 +463,25 @@ export class Games {
     );
   }
   private readonly sessions = new Map<string, Session>();
+  private categoryCycles?: Map<string, { remaining: number[]; last: number | undefined }>;
+  private pickCategory(channel: string, requested?: string): (typeof categories)[number] | undefined {
+    const selected = requested === undefined
+      ? undefined
+      : categories.findIndex(category => category.name.toLowerCase() === requested.trim().toLowerCase());
+    if (selected === -1) return undefined;
+    const cycles = this.categoryCycles ??= new Map();
+    let cycle = cycles.get(channel);
+    if (!cycle || cycle.remaining.length === 0) {
+      cycle = { remaining: categories.map((_, index) => index), last: cycle?.last };
+      cycles.set(channel, cycle);
+    }
+    const different = cycle.remaining.filter(index => index !== cycle.last);
+    const candidates = different.length ? different : cycle.remaining;
+    const index = selected ?? candidates[Math.floor(this.random() * candidates.length)] ?? candidates[0]!;
+    cycle.remaining = cycle.remaining.filter(remaining => remaining !== index);
+    cycle.last = index;
+    return categories[index];
+  }
   constructor(
     private readonly words: ReadonlySet<string>,
     private readonly random = Math.random,
@@ -484,13 +503,13 @@ export class Games {
     game: GameName,
     starter: string,
     now = Date.now(),
+    categoryName?: string,
   ): string {
     const active = this.sessions.get(channel);
     if (active)
       return `This channel is already playing ${active.game}. Stop it with /game ${active.game} stop first.`;
-    const category =
-      categories[Math.floor(this.random() * categories.length)] ??
-      categories[0];
+    const category = game === "categories" ? this.pickCategory(channel, categoryName) : categories[0];
+    if (!category) return "Unknown category. Choose one from `/game categories start category:`.";
     this.sessions.set(channel, {
       game,
       starter,
