@@ -7,13 +7,13 @@ const create = () =>
     new Set(["apple", "elephant", "tiger", "rabbit", "tree", "egg"]),
     () => 0,
   );
-test("commands expose /games and all three start/stop groups", () => {
+test("commands expose /games and all four start/stop groups", () => {
   assert.equal(gamesCommand.data.name, "games");
   const data = gameCommand.data.toJSON();
   assert.equal(data.name, "game");
   assert.deepEqual(
     data.options?.map((g) => g.name),
-    ["wordchain", "categories", "counting"],
+    ["wordchain", "categories", "counting", "higherlower"],
   );
   for (const group of data.options ?? []) {
     assert.ok("options" in group);
@@ -93,4 +93,37 @@ test("inactivity expiry, refresh on valid turns, and monotonic records", () => {
   g.remember("a", "counting", 3);
   assert.equal(g.best("a", "counting"), 10);
   assert.equal(g.best("b", "counting"), 0);
+});
+
+
+test("higher/lower reacts toward the secret, ignores invalid guesses, and ends on a win", () => {
+  const g = new Games(new Set(), () => 0.4999);
+  assert.match(g.start("a", "higherlower", "owner", 0), /1 to 10,000/);
+  for (const invalid of ["ordinary chat", "0", "10001", "-1", "1.5", "1e3", "9999999999999999"])
+    assert.equal(g.message("a", "u", invalid, 1), undefined);
+  assert.equal(g.message("a", "u", "1", 2)?.reaction, "⬆️");
+  assert.equal(g.message("a", "u", "10000", 3)?.reaction, "⬇️");
+  assert.equal(g.message("a", "u", "4998", 4)?.text, "");
+  const won = g.message("a", "u", " 5000 ", 5)!;
+  assert.equal(won.reaction, "✅");
+  assert.match(won.text, /5000.*4.*guesses/);
+  assert.equal(won.score, 0);
+  assert.equal(g.active("a"), undefined);
+  assert.equal(g.message("a", "u", "5000", 6), undefined);
+});
+
+test("higher/lower includes both endpoints and expires after valid-guess inactivity", () => {
+  for (const [random, target] of [[0, 1], [0.999999, 10000]] as const) {
+    const g = new Games(new Set(), () => random);
+    g.start("a", "higherlower", "owner", 0);
+    assert.match(g.message("a", "u", String(target), 1)!.text, /1.*guess!/);
+  }
+  const g = create();
+  g.start("a", "higherlower", "owner", 0);
+  g.message("a", "u", "2", 1000);
+  assert.equal(g.expire("a", 1_800_000), undefined);
+  g.message("a", "u", "hello", 1_800_999);
+  assert.match(g.expire("a", 1_801_000)!.text, /expired/);
+  g.start("a", "higherlower", "owner", 1_801_001);
+  assert.equal(g.active("a"), "higherlower");
 });

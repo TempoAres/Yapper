@@ -1,4 +1,9 @@
-export const gameNames = ["wordchain", "categories", "counting"] as const;
+export const gameNames = [
+  "wordchain",
+  "categories",
+  "counting",
+  "higherlower",
+] as const;
 export type GameName = (typeof gameNames)[number];
 export const categories = [
   {
@@ -75,10 +80,13 @@ interface Session {
   word: string;
   used: Set<string>;
   category: (typeof categories)[number];
+  target: number;
+  guesses: number;
   expiresAt: number;
 }
 export interface GameResult {
   text: string;
+  reaction?: "⬆️" | "⬇️" | "✅";
   game: GameName;
   score: number;
 }
@@ -124,9 +132,13 @@ export class Games {
       word: "apple",
       used: new Set(game === "wordchain" ? ["apple"] : []),
       category,
+      target: game === "higherlower" ? Math.floor(this.random() * 10_000) + 1 : 0,
+      guesses: 0,
       expiresAt: now + (game === "categories" ? 30_000 : 30 * 60_000),
     });
-    return game === "wordchain"
+    return game === "higherlower"
+      ? "Higher/lower started! Guess the secret whole number from **1 to 10,000**. Anyone can guess, including consecutive turns. I react ⬆️ if the secret number is higher and ⬇️ if it is lower. A correct guess ends the round. Ends after 30 minutes without a valid guess."
+      : game === "wordchain"
       ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. Build a shared chain! Ends after 30 minutes without a valid turn."
       : game === "counting"
         ? "Counting started! Send **1**. Take turns counting upward; replace every multiple of 5 with **yap**. A wrong number or consecutive turn resets the streak. Ordinary chat is ignored. Ends after 30 minutes without a valid turn."
@@ -143,6 +155,7 @@ export class Games {
     if (s.starter !== user && !moderator)
       return "Only the game starter or someone with Manage Channels can stop this game.";
     this.sessions.delete(channel);
+    if (game === "higherlower") return "higherlower stopped.";
     return `${game} stopped. Shared score: **${s.score}**.`;
   }
   expire(channel: string, now = Date.now()): GameResult | undefined {
@@ -150,7 +163,9 @@ export class Games {
     if (!s || now < s.expiresAt) return;
     this.sessions.delete(channel);
     return {
-      text: `${s.game} finished! Shared score: **${s.score}**. Start another with /game ${s.game} start.`,
+      text: s.game === "higherlower"
+        ? "Higher/lower expired after 30 minutes without a valid guess. Start another with /game higherlower start."
+        : `${s.game} finished! Shared score: **${s.score}**. Start another with /game ${s.game} start.`,
       game: s.game,
       score: s.score,
     };
@@ -170,7 +185,27 @@ export class Games {
     if (!s) return;
     const answer = content.trim().toLowerCase();
     let text: string;
-    if (s.game === "counting") {
+    if (s.game === "higherlower") {
+      if (!/^\d{1,5}$/.test(answer)) return;
+      const guess = Number(answer);
+      if (guess < 1 || guess > 10_000) return;
+      s.guesses++;
+      s.expiresAt = now + 30 * 60_000;
+      if (guess !== s.target)
+        return {
+          text: "",
+          reaction: guess < s.target ? "⬆️" : "⬇️",
+          game: s.game,
+          score: 0,
+        };
+      this.sessions.delete(channel);
+      return {
+        text: `🎉 Correct! The number was **${s.target}**. Solved together in **${s.guesses}** ${s.guesses === 1 ? "guess" : "guesses"}! Start another with /game higherlower start.`,
+        reaction: "✅",
+        game: s.game,
+        score: 0,
+      };
+    } else if (s.game === "counting") {
       if (!/^\d+$/.test(answer) && answer !== "yap") return;
       const next = s.score + 1;
       const expected = next % 5 === 0 ? "yap" : String(next);

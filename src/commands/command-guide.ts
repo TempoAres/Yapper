@@ -11,7 +11,7 @@ const commandGroups = [
   {
     name: "Cooperative games",
     commands:
-      "/games, /game wordchain start, /game categories start, /game counting start, /game wordchain stop, /game categories stop, /game counting stop",
+      "/games, /game wordchain start, /game categories start, /game counting start, /game wordchain stop, /game categories stop, /game counting stop, /game higherlower start, /game higherlower stop",
   },
   {
     name: "Level leaderboard",

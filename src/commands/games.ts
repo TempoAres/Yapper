@@ -13,7 +13,7 @@ export const gamesCommand: BotCommand = {
   async execute(i) {
     await i.reply({
       content:
-        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Only the starter or Manage Channels members can stop a game.",
+        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Only the starter or Manage Channels members can stop a game.",
       flags: MessageFlags.Ephemeral,
     });
   },
@@ -54,6 +54,17 @@ export const gameCommand: BotCommand = {
         .addSubcommand((s) =>
           s.setName("stop").setDescription("Stop counting"),
         ),
+    )
+    .addSubcommandGroup((g) =>
+      g
+        .setName("higherlower")
+        .setDescription("Guess a secret number from 1 to 10,000")
+        .addSubcommand((s) =>
+          s.setName("start").setDescription("Start higher/lower"),
+        )
+        .addSubcommand((s) =>
+          s.setName("stop").setDescription("Stop higher/lower"),
+        ),
     ),
   async execute(i, context) {
     const games = context.games;
@@ -82,6 +93,20 @@ export const gameCommand: BotCommand = {
     const game = i.options.getSubcommandGroup(true) as GameName;
     if (!gameNames.includes(game)) return;
     const starting = i.options.getSubcommand() === "start";
+    if (
+      starting &&
+      game === "higherlower" &&
+      !permissions.has([
+        PermissionFlagsBits.AddReactions,
+        PermissionFlagsBits.ReadMessageHistory,
+      ])
+    ) {
+      await i.reply({
+        content: "I need Add Reactions and Read Message History permissions for higher/lower.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
     await i.deferReply();
     const text = starting
       ? games.start(i.channelId, game, i.user.id)
@@ -92,7 +117,10 @@ export const gameCommand: BotCommand = {
           i.memberPermissions?.has(PermissionFlagsBits.ManageChannels) ?? false,
         );
     await i.editReply({
-      content: `${text}\nChannel record for ${game}: **${games.best(i.channelId, game)}**.`,
+      content:
+        game === "higherlower"
+          ? text
+          : `${text}\nChannel record for ${game}: **${games.best(i.channelId, game)}**.`,
       allowedMentions: { parse: [] },
     });
   },

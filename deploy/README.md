@@ -232,3 +232,38 @@ docker compose --env-file .env.production -f compose.production.yaml stop bot
 
 This stops XP collection but leaves PostgreSQL and backups running. Start the
 bot again with the matching `start bot` command.
+
+
+## Existing Yapper VPS from Codex Cloud
+
+- SSH user: `mika`
+- Tailscale IP: `100.88.120.6`
+- Public IP and SSH host-key alias: `167.233.174.195`
+- Production checkout: `/home/mika/Yapper`
+- Last independently verified release before higher/lower: `8b116ac`
+
+The verified SSH host-key entry supplied by the operator is:
+
+```text
+167.233.174.195 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIDIzuy8DgAqUoCW/l5IV2Sf9Opb26UBwRckKN+wjRED
+```
+
+Read the Cloud Environment runtime skill and VPN reference, inspect current VPN
+readiness, and use managed Tailscale TCP CONNECT at `proxy:8088` targeting
+`100.88.120.6:22` from the approved outer executor. Direct SSH may not work.
+Use `HostKeyAlias=167.233.174.195`, `StrictHostKeyChecking=yes`,
+`IdentitiesOnly=yes`, and a dedicated known_hosts file containing the entry above.
+The prior workspace key path is `/workspace/.yapper-deploy/id_ed25519`; check
+that it exists, but never print or commit its contents. Its authorized public key is:
+
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAxDpGHOJep/wxVaO3ZyysZgiQLHcnbjLSRcsXz2YQO6 yapper-codex-cloud-deploy
+```
+
+If the private key is missing, generate a dedicated pair and have the operator
+authorize only the public key. Recheck the production Git state and container
+health before deploying. Preserve a rollback image, create and verify a fresh
+database backup, then build the exact pushed release, register commands and
+replace only the bot. Preserve production configuration, secrets, backups and
+database volumes. This VPS also hosts Bricklink Purchase Insight; do not alter
+its services.

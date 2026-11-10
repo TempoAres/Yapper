@@ -60,6 +60,14 @@ export async function registerGames(
         receivedAt,
       );
       if (!result) return;
+      if (result.reaction) {
+        try {
+          await message.react(result.reaction);
+        } catch (error) {
+          console.error("Channel game reaction failed:", error);
+        }
+      }
+      if (!result.text) return;
       const content = await record(message.channelId, result);
       await message.channel.send({ content, allowedMentions: { parse: [] } });
     });

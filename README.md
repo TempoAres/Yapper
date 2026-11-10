@@ -658,7 +658,7 @@ would double-count activity.
 ## Cooperative channel games
 
 Use `/games` for the rules, then `/game wordchain start`, `/game categories start`,
-or `/game counting start`. Replace `start` with `stop` to end that game. Each
+`/game counting start`, or `/game higherlower start`. Replace `start` with `stop` to end that game. Each
 channel (including threads) has one active game, independent of other channels.
 Only the starter or a member with Manage Channels may stop it.
 
@@ -670,10 +670,15 @@ Only the starter or a member with Manage Channels may stop it.
   as one answer. Current categories: colours, planets, and days/months.
 - **Counting:** take turns starting at 1. Every multiple of five becomes `yap`.
   Wrong numbers or consecutive turns reset the streak; ordinary chat is ignored.
+- **Higher/lower:** guess a random secret whole number from 1 to 10,000 inclusive.
+  The bot reacts ⬆️ when the secret is higher and ⬇️ when it is lower. Anyone
+  can guess repeatedly; a correct guess gets ✅ and ends the round with the
+  shared guess count. Other chat and out-of-range guesses are ignored. Requires
+  Add Reactions and Read Message History. No score or record is awarded.
 
 Scores and records are shared, with no personal ranking or game-specific XP awards (normal message XP still applies). Channel
-records persist in PostgreSQL; active rounds end when the bot restarts. Counting
-and word chain expire after 30 minutes without a valid turn. Bots and webhooks
+records persist in PostgreSQL; active rounds end when the bot restarts. Counting,
+word chain, and higher/lower expire after 30 minutes without a valid turn. Bots and webhooks
 cannot play. Message Content Intent and channel send/view permissions are required.
 Deployment must run migration 0015 (also applied automatically at startup),
 register the updated slash commands, and restart the bot with the rebuilt code.

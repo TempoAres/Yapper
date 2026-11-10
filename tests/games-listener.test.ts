@@ -90,3 +90,51 @@ test(
     }
   },
 );
+
+
+test("higher/lower listener reacts to guesses, announces wins and skips score records", { timeout: 2000 }, async () => {
+  const writes: unknown[] = [];
+  const pool = {
+    async query(sql: string) {
+      if (!sql.startsWith("SELECT")) writes.push(sql);
+      return { rows: [] };
+    },
+  } as unknown as Pool;
+  const client = Object.assign(new EventEmitter(), {
+    destroy() {},
+    channels: { fetch: async () => null },
+  }) as unknown as Client;
+  const games = new Games(new Set(), () => 0.4999);
+  await registerGames(client, games, pool);
+  try {
+    games.start("a", "higherlower", "owner");
+    const reactions: string[] = [];
+    const sent: string[] = [];
+    let done!: () => void;
+    const finished = new Promise<void>((resolve) => { done = resolve; });
+    for (const content of ["hi", "0", "1", "10000", "5000", "5000"])
+      (client as unknown as EventEmitter).emit(Events.MessageCreate, {
+        inGuild: () => true,
+        author: { id: "one", bot: false },
+        webhookId: null,
+        channelId: "a",
+        content,
+        async react(emoji: string) { reactions.push(emoji); },
+        channel: {
+          async send(options: { content: string }) {
+            sent.push(options.content);
+            done();
+          },
+        },
+      });
+    await finished;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(reactions, ["⬆️", "⬇️", "✅"]);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0]!, /5000.*3.*guesses/);
+    assert.deepEqual(writes, []);
+    assert.equal(games.active("a"), undefined);
+  } finally {
+    await client.destroy();
+  }
+});
