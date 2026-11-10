@@ -10,11 +10,12 @@ import { gameNames, type GameName } from "../services/games/games.js";
 export const gamesCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("games")
+    .setDefaultMemberPermissions(null)
     .setDescription("Discover cooperative channel games."),
   async execute(i) {
     await i.reply({
       content:
-        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Only the starter or Manage Channels members can stop a game.",
+        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Anyone can start or stop a game.",
       flags: MessageFlags.Ephemeral,
     });
   },
@@ -22,6 +23,7 @@ export const gamesCommand: BotCommand = {
 export const gameCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("game")
+    .setDefaultMemberPermissions(null)
     .setDescription("Start or stop a cooperative channel game.")
     .addSubcommandGroup((g) =>
       g
@@ -126,12 +128,7 @@ export const gameCommand: BotCommand = {
     await i.deferReply();
     const text = starting
       ? games.start(i.channelId, game, i.user.id)
-      : games.stop(
-          i.channelId,
-          game,
-          i.user.id,
-          i.memberPermissions?.has(PermissionFlagsBits.ManageChannels) ?? false,
-        );
+      : games.stop(i.channelId, game);
     await i.editReply({
       content:
         game === "higherlower"

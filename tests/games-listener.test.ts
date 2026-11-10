@@ -74,7 +74,7 @@ test(
         Events.MessageCreate,
         message("three", "3"),
       );
-      games.stop("a", "counting", "owner", false);
+      games.stop("a", "counting");
       games.start("a", "counting", "owner");
       await new Promise<void>((resolve) => setImmediate(resolve));
       assert.equal(sent.length, 2);

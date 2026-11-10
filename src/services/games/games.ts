@@ -148,13 +148,9 @@ export class Games {
   stop(
     channel: string,
     game: GameName,
-    user: string,
-    moderator: boolean,
   ): string {
     const s = this.sessions.get(channel);
     if (!s || s.game !== game) return `${game} is not running in this channel.`;
-    if (s.starter !== user && !moderator)
-      return "Only the game starter or someone with Manage Channels can stop this game.";
     this.sessions.delete(channel);
     if (game === "higherlower") return "higherlower stopped.";
     return `${game} stopped. Shared score: **${s.score}**.`;

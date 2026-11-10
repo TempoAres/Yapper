@@ -11,6 +11,8 @@ test("commands expose /games and all four start/stop groups", () => {
   assert.equal(gamesCommand.data.name, "games");
   const data = gameCommand.data.toJSON();
   assert.equal(data.name, "game");
+  assert.equal(data.default_member_permissions, null);
+  assert.equal(gamesCommand.data.toJSON().default_member_permissions, null);
   assert.deepEqual(
     data.options?.map((g) => g.name),
     ["wordchain", "categories", "counting", "higherlower"],
@@ -72,16 +74,15 @@ test("category rush scores unique curated answers and expires exactly at deadlin
   );
   assert.equal(g.active("a"), undefined);
 });
-test("stop requires starter or moderator, matches game, and releases channel", () => {
+test("any member can stop a game; stop matches the game and releases the channel", () => {
   const g = create();
   g.start("a", "counting", "owner", 0);
-  assert.match(g.stop("a", "wordchain", "owner", false), /not running/);
-  assert.match(g.stop("a", "counting", "other", false), /Only/);
+  assert.match(g.stop("a", "wordchain"), /not running/);
   assert.equal(g.active("a"), "counting");
-  assert.match(g.stop("a", "counting", "mod", true), /stopped/);
+  assert.match(g.stop("a", "counting"), /stopped/);
   assert.equal(g.active("a"), undefined);
   g.start("a", "categories", "owner", 0);
-  assert.match(g.stop("a", "categories", "owner", false), /stopped/);
+  assert.match(g.stop("a", "categories"), /stopped/);
 });
 test("inactivity expiry, refresh on valid turns, and monotonic records", () => {
   const g = create();
@@ -160,4 +161,28 @@ test("higher/lower leaderboard displays legacy wins without starting or stopping
   assert.deepEqual(reply?.allowedMentions, { parse: [] });
   assert.equal(g.sessionToken("a"), session);
   assert.match(formatHigherLowerLeaderboard({ totalWins: 922, legacyWins: 922, channels: [] }), /No new completed games yet/);
+});
+
+test("ordinary members can stop another member's round and use /games", async () => {
+  const g = create();
+  g.start("a", "higherlower", "owner");
+  const replies: string[] = [];
+  const interaction = {
+    inGuild: () => true,
+    channelId: "a",
+    user: { id: "other-member" },
+    memberPermissions: { has: () => false },
+    channel: { isSendable: () => true, isThread: () => false },
+    guild: { members: { me: { permissionsIn: () => ({ has: () => true }) } } },
+    options: { getSubcommandGroup: () => "higherlower", getSubcommand: () => "stop" },
+    async deferReply() {},
+    async editReply(value: { content: string }) { replies.push(value.content); },
+    async reply(value: { content: string }) { replies.push(value.content); },
+  } as unknown as Parameters<typeof gameCommand.execute>[0];
+  const context = { games: g } as Parameters<typeof gameCommand.execute>[1];
+  await gameCommand.execute(interaction, context);
+  assert.equal(g.active("a"), undefined);
+  assert.match(replies[0]!, /higherlower stopped/);
+  await gamesCommand.execute(interaction, context);
+  assert.match(replies[1]!, /Anyone can start or stop a game/);
 });

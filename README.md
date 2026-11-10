@@ -660,7 +660,7 @@ would double-count activity.
 Use `/games` for the rules, then `/game wordchain start`, `/game categories start`,
 `/game counting start`, or `/game higherlower start`. Replace `start` with `stop` to end that game. Each
 channel (including threads) has one active game, independent of other channels.
-Only the starter or a member with Manage Channels may stop it.
+Any server member can start or stop a game and use `/games`.
 
 - **Word chain:** English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats
