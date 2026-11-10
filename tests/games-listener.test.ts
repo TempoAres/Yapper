@@ -30,6 +30,7 @@ test(
       assert.equal(games.best("a", "counting"), 1);
       games.start("a", "counting", "owner");
       const sent: string[] = [];
+      const reactions: string[] = [];
       let done!: () => void;
       const finished = new Promise<void>((resolve) => {
         done = resolve;
@@ -42,6 +43,10 @@ test(
         guildId: "server",
         id: content,
         content,
+        async react(emoji: string) {
+          reactions.push(emoji);
+          if (reactions.length === 2) done();
+        },
         channel: {
           async send(options: {
             content: string;
@@ -49,7 +54,6 @@ test(
           }) {
             assert.deepEqual(options.allowedMentions.parse, []);
             sent.push(options.content);
-            if (sent.length === 2) done();
           },
         },
       });
@@ -66,9 +70,11 @@ test(
         message("two", "2"),
       );
       await finished;
-      assert.equal(sent.length, 2);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(sent.length, 0);
+      assert.deepEqual(reactions, ["✅", "✅"]);
       assert.deepEqual(writes, [["a", "counting", 2]]);
-      assert.match(sent[1]!, /New shared channel record/);
+      assert.equal(games.best("a", "counting"), 2);
       // A queued turn from a stopped round must not enter a replacement round.
       (client as unknown as EventEmitter).emit(
         Events.MessageCreate,
@@ -77,7 +83,8 @@ test(
       games.stop("a", "counting");
       games.start("a", "counting", "owner");
       await new Promise<void>((resolve) => setImmediate(resolve));
-      assert.equal(sent.length, 2);
+      assert.equal(sent.length, 0);
+      assert.equal(reactions.length, 2);
 
       const restored = new Games(new Set());
       const second = Object.assign(new EventEmitter(), {

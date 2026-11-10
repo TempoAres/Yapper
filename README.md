@@ -660,16 +660,25 @@ would double-count activity.
 Use `/games` for the rules, then `/game wordchain start`, `/game categories start`,
 `/game counting start`, or `/game higherlower start`. Replace `start` with `stop` to end that game. Each
 channel (including threads) has one active game, independent of other channels.
-Any server member can start or stop a game and use `/games`.
+Any server member can start or stop a game and use `/games`. The server must
+allow **Use Application Commands** in the channel for members to see slash
+commands. In bluddington, `#games` (`1222840553121779722`) explicitly allows this
+for `@everyone`. `/games` posts the rules and category list publicly.
 
 - **Word chain:** English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats
   or consecutive turns by the same player. Invalid answers leave the chain intact.
 - **Category rush:** a randomly selected curated category, with 30 seconds to
   find different accepted answers together. Repeats add nothing; grey/gray count
-  as one answer. Current categories: colours, planets, and days/months.
+  as one answer. There are **12 categories**: colours, planets, days/months,
+  animals, fruits, vegetables, countries, sports, musical instruments, Minecraft
+  mobs, Minecraft blocks, and jobs/professions. `/games` lists all themes.
+  Answers use a curated English list; multi-word answers go in one message.
 - **Counting:** take turns starting at 1. Every multiple of five becomes `yap`.
-  Wrong numbers or consecutive turns reset the streak; ordinary chat is ignored.
+  Valid turns get a ✅ reaction, including new records, without a confirmation
+  message. Records still persist. Wrong numbers or consecutive turns reset the
+  streak with an explanation; ordinary chat is ignored. Requires Add Reactions
+  and Read Message History.
 - **Higher/lower:** guess a random secret whole number from 1 to 10,000 inclusive.
   The bot reacts ⬆️ when the secret is higher and ⬇️ when it is lower. Anyone
   can guess repeatedly; a correct guess gets ✅ and ends the round with the

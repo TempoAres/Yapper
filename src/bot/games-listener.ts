@@ -41,7 +41,9 @@ export async function registerGames(
       [channel, result.game, result.score],
     );
     games.remember(channel, result.game, result.score);
-    return `${result.text}\n🏆 New shared channel record: **${result.score}**!`;
+    return result.text
+      ? `${result.text}\n🏆 New shared channel record: **${result.score}**!`
+      : "";
   };
   client.on(Events.MessageCreate, (message) => {
     if (
@@ -74,8 +76,8 @@ export async function registerGames(
           console.error("Channel game reaction failed:", error);
         }
       }
-      if (!result.text) return;
       const content = await record(message.channelId, result);
+      if (!content) return;
       await message.channel.send({ content, allowedMentions: { parse: [] } });
     });
   });

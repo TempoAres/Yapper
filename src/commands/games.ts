@@ -5,7 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import type { BotCommand } from "./command.js";
-import { gameNames, type GameName } from "../services/games/games.js";
+import { categories, gameNames, type GameName } from "../services/games/games.js";
 
 export const gamesCommand: BotCommand = {
   data: new SlashCommandBuilder()
@@ -13,10 +13,18 @@ export const gamesCommand: BotCommand = {
     .setDefaultMemberPermissions(null)
     .setDescription("Discover cooperative channel games."),
   async execute(i) {
-    await i.reply({
-      content:
-        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Anyone can start or stop a game.",
-      flags: MessageFlags.Ephemeral,
+    await i.deferReply();
+    await i.editReply({
+      content: [
+        "**Cooperative games**",
+        "**wordchain** — build an English word chain; no repeats or consecutive turns.",
+        `**categories** — find unique answers in 30 seconds. **${categories.length} categories:** ${categories.map((category) => category.name).join(", ")}.`,
+        "**counting** — take turns counting; multiples of five become “yap”. Valid turns get ✅ reactions. Mistakes reset the streak.",
+        "**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.",
+        "Start: `/game X start` • Stop: `/game X stop`",
+        "One game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Anyone can start or stop a game.",
+      ].join("\n"),
+      allowedMentions: { parse: [] },
     });
   },
 };
@@ -113,14 +121,14 @@ export const gameCommand: BotCommand = {
     const starting = i.options.getSubcommand() === "start";
     if (
       starting &&
-      game === "higherlower" &&
+      (game === "higherlower" || game === "counting") &&
       !permissions.has([
         PermissionFlagsBits.AddReactions,
         PermissionFlagsBits.ReadMessageHistory,
       ])
     ) {
       await i.reply({
-        content: "I need Add Reactions and Read Message History permissions for higher/lower.",
+        content: `I need Add Reactions and Read Message History permissions for ${game === "counting" ? "counting" : "higher/lower"}.`,
         flags: MessageFlags.Ephemeral,
       });
       return;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Games } from "../src/services/games/games.js";
+import { Games, categories } from "../src/services/games/games.js";
 import { gameCommand, gamesCommand } from "../src/commands/games.js";
 const create = () =>
   new Games(
@@ -185,4 +185,45 @@ test("ordinary members can stop another member's round and use /games", async ()
   assert.match(replies[0]!, /higherlower stopped/);
   await gamesCommand.execute(interaction, context);
   assert.match(replies[1]!, /Anyone can start or stop a game/);
+});
+
+
+test("counting confirms valid numbers and yap with reactions only", () => {
+  const g = create();
+  g.start("a", "counting", "owner", 0);
+  for (let number = 1; number <= 6; number++) {
+    const result = g.message("a", String(number % 2), number === 5 ? "yap" : String(number), number)!;
+    assert.equal(result.text, "");
+    assert.equal(result.reaction, "✅");
+    assert.equal(result.score, number);
+  }
+  assert.match(g.message("a", "other", "9", 7)!.text, /Expected/);
+});
+
+test("all twelve category themes are selectable and accept multi-word answers", () => {
+  assert.equal(categories.length, 12);
+  for (const [index, category] of categories.entries()) {
+    const g = new Games(new Set(), () => (index + 0.5) / categories.length);
+    assert.ok(g.start("a", "categories", "owner", 0).includes(category.name));
+    const answer = category.answers.find(a => a.includes(" ")) ?? category.answers[0];
+    assert.equal(g.message("a", "u", ` ${answer.toUpperCase()} `, 1)?.score, 1);
+    assert.equal(g.message("a", "u", answer, 2), undefined);
+    assert.equal(g.message("a", "u", "not an accepted answer", 3), undefined);
+  }
+});
+
+test("/games acknowledges publicly then lists every category within Discord's message limit", async () => {
+  let acknowledged = false;
+  await gamesCommand.execute({
+    async deferReply(options: unknown) {
+      assert.equal(options, undefined);
+      acknowledged = true;
+    },
+    async editReply(reply: {content: string; allowedMentions: unknown}) {
+      assert.equal(acknowledged, true);
+      assert.ok(reply.content.length < 2000);
+      for (const category of categories) assert.ok(reply.content.includes(category.name));
+      assert.deepEqual(reply.allowedMentions, {parse: []});
+    },
+  } as unknown as Parameters<typeof gamesCommand.execute>[0], {} as Parameters<typeof gamesCommand.execute>[1]);
 });
