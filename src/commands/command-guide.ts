@@ -9,9 +9,13 @@ import { yapperColors } from "../presentation/colors.js";
 
 const commandGroups = [
   {
-    name: "Level leaderboard",
+    name: "Cooperative games",
     commands:
-      "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly, /lbs",
+      "/games, /game wordchain start, /game categories start, /game counting start, /game wordchain stop, /game categories stop, /game counting stop",
+  },
+  {
+    name: "Level leaderboard",
+    commands: "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly, /lbs",
   },
   { name: "XP leaderboard", commands: "/xplb" },
   {
