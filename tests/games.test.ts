@@ -37,12 +37,12 @@ test("sessions isolate channels and prevent replacing an active game", () => {
 test("word chain validates dictionary, initial letter, repeats, and turn order without breaking chain", () => {
   const g = create();
   g.start("a", "wordchain", "u", 0);
-  assert.match(g.message("a", "u", "zzzz", 1)!.text, /dictionary/);
-  assert.match(g.message("a", "u", "tiger", 2)!.text, /start with/);
+  assert.equal(g.message("a", "u", "zzzz", 1)?.reaction, "❌");
+  assert.equal(g.message("a", "u", "tiger", 2)?.reaction, "❌");
   assert.equal(g.message("a", "u", "Elephant", 3)?.score, 1);
-  assert.match(g.message("a", "u", "tiger", 4)!.text, /another player/);
+  assert.equal(g.message("a", "u", "tiger", 4)?.reaction, "⏳");
   assert.equal(g.message("a", "v", "tiger", 5)?.score, 2);
-  assert.match(g.message("a", "u", "elephant", 6)!.text, /already/);
+  assert.equal(g.message("a", "u", "elephant", 6)?.reaction, "🔁");
   assert.equal(g.message("a", "u", "rabbit", 7)?.score, 3);
 });
 test("counting replaces multiples of five and resets wrong numbers and consecutive turns", () => {
@@ -54,22 +54,22 @@ test("counting replaces multiples of five and resets wrong numbers and consecuti
       n,
     );
   assert.equal(g.message("a", "u", "ordinary chat", 11), undefined);
-  assert.match(g.message("a", "u", "12", 12)!.text, /Expected \*\*11/);
+  assert.equal(g.message("a", "u", "12", 12)?.reaction, "❌");
   assert.equal(g.message("a", "u", "1", 13)?.score, 1);
-  assert.match(g.message("a", "u", "2", 14)!.text, /Take turns/);
+  assert.equal(g.message("a", "u", "2", 14)?.reaction, "❌");
   assert.equal(g.message("a", "v", "1", 15)?.score, 1);
 });
 test("category rush scores unique curated answers and expires exactly at deadline", () => {
   const g = create();
   g.start("a", "categories", "u", 0);
   assert.equal(g.message("a", "u", "RED", 1)?.score, 1);
-  assert.equal(g.message("a", "v", "red", 2), undefined);
+  assert.equal(g.message("a", "v", "red", 2)?.reaction, "🔁");
   assert.equal(g.message("a", "u", "grey", 3)?.score, 2);
-  assert.equal(g.message("a", "v", "gray", 4), undefined);
+  assert.equal(g.message("a", "v", "gray", 4)?.reaction, "🔁");
   assert.equal(g.message("a", "v", "not a colour", 5), undefined);
-  assert.equal(g.message("a", "u", "blue", 29_999)?.score, 3);
+  assert.equal(g.message("a", "u", "blue", 59_999)?.score, 3);
   assert.match(
-    g.message("a", "v", "green", 30_000)!.text,
+    g.message("a", "v", "green", 60_000)!.text,
     /Shared score: \*\*3/,
   );
   assert.equal(g.active("a"), undefined);
@@ -197,7 +197,7 @@ test("counting confirms valid numbers and yap with reactions only", () => {
     assert.equal(result.reaction, "✅");
     assert.equal(result.score, number);
   }
-  assert.match(g.message("a", "other", "9", 7)!.text, /Expected/);
+  assert.equal(g.message("a", "other", "9", 7)?.reaction, "❌");
 });
 
 test("all twelve category themes are selectable and accept multi-word answers", () => {
@@ -207,7 +207,7 @@ test("all twelve category themes are selectable and accept multi-word answers", 
     assert.ok(g.start("a", "categories", "owner", 0).includes(category.name));
     const answer = category.answers.find(a => a.includes(" ")) ?? category.answers[0];
     assert.equal(g.message("a", "u", ` ${answer.toUpperCase()} `, 1)?.score, 1);
-    assert.equal(g.message("a", "u", answer, 2), undefined);
+    assert.equal(g.message("a", "u", answer, 2)?.reaction, "🔁");
     assert.equal(g.message("a", "u", "not an accepted answer", 3), undefined);
   }
 });
@@ -250,11 +250,66 @@ test("Minecraft category start explains spaces; Ice and Blue Ice score separatel
   assert.match(start, /Blue Ice.*Ice.*separate messages/);
   assert.match(start, /Spaces or underscores/);
   assert.equal(g.message("a", "u", "Blue Ice", 1)?.score, 1);
-  assert.equal(g.message("a", "u", "blue_ice", 2), undefined);
+  assert.equal(g.message("a", "u", "blue_ice", 2)?.reaction, "🔁");
   assert.equal(g.message("a", "u", "Ice", 3)?.score, 2);
-  assert.equal(g.message("a", "u", "ice", 4), undefined);
+  assert.equal(g.message("a", "u", "ice", 4)?.reaction, "🔁");
   assert.equal(g.message("a", "u", "  Smooth   Stone  ", 5)?.score, 3);
-  assert.equal(g.message("a", "u", "minecraft:smooth_stone", 6), undefined);
+  assert.equal(g.message("a", "u", "minecraft:smooth_stone", 6)?.reaction, "🔁");
   assert.equal(g.message("a", "u", "Stone", 7)?.score, 4);
   assert.equal(g.message("a", "u", "diamond", 8), undefined);
+});
+
+
+test("every category lasts exactly 60 seconds and normalizes multi-word answers", () => {
+  for (const [index, category] of categories.entries()) {
+    const g = new Games(new Set(), () => (index + 0.5) / categories.length);
+    assert.match(g.start("a", "categories", "owner", 0), /60 seconds/);
+    const answer = category.answers.find(a => a.includes(" ")) ?? category.answers[0];
+    assert.equal(g.message("a", "u", answer.toUpperCase().replace(/ /g, "   "), 30_000)?.reaction, "✅");
+    assert.equal(g.message("a", "v", answer.replace(/ /g, "_"), 59_999)?.reaction, "🔁");
+    assert.equal(g.expire("a", 59_999), undefined);
+    assert.match(g.expire("a", 60_000)!.text, /Shared score: \*\*1/);
+    assert.equal(g.expire("a", 60_001), undefined);
+  }
+});
+
+test("Minecraft mobs accepts Wither skeleton with spaces and prevents alias duplicates", () => {
+  const index = categories.findIndex(c => c.name === "Minecraft mobs");
+  const g = new Games(new Set(), () => (index + 0.5) / categories.length);
+  assert.match(g.start("a", "categories", "owner", 0), /Wither skeleton/);
+  const result = g.message("a", "u", " Wither   skeleton ", 1)!;
+  assert.equal(result.score, 1);
+  assert.equal(result.text, "");
+  assert.equal(result.reaction, "✅");
+  assert.equal(g.message("a", "v", "WITHER_SKELETON", 2)?.reaction, "🔁");
+  assert.equal(g.message("a", "v", "skeleton", 3)?.score, 2);
+});
+
+test("counting final summary keeps the best streak after a reset", () => {
+  for (const stop of [false, true]) {
+    const g = create();
+    g.start("a", "counting", "owner", 0);
+    g.message("a", "u", "1", 1);
+    g.message("a", "v", "2", 2);
+    assert.equal(g.message("a", "u", "4", 3)?.text, "");
+    const text = stop ? g.stop("a", "counting") : g.expire("a", 1_800_002)!.text;
+    assert.match(text, /Best streak: \*\*2/);
+  }
+});
+
+test("all games require reaction permissions before starting", async () => {
+  for (const game of ["wordchain", "categories", "counting", "higherlower"] as const) {
+    const g = create();
+    let reply = "";
+    await gameCommand.execute({
+      inGuild: () => true,
+      channelId: "a",
+      channel: { isSendable: () => true, isThread: () => false },
+      guild: { members: { me: { permissionsIn: () => ({ has: (bits: bigint[]) => !bits.includes(64n) }) } } },
+      options: { getSubcommandGroup: () => game, getSubcommand: () => "start" },
+      async reply(value: { content: string }) { reply = value.content; },
+    } as unknown as Parameters<typeof gameCommand.execute>[0], { games: g } as Parameters<typeof gameCommand.execute>[1]);
+    assert.match(reply, /Add Reactions and Read Message History/);
+    assert.equal(g.active("a"), undefined);
+  }
 });

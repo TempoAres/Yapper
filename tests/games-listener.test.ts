@@ -156,3 +156,66 @@ test("higher/lower listener reacts to guesses, persists one win and skips score 
     await client.destroy();
   }
 });
+
+
+test("all score games react throughout play and send exactly one final summary", async (t) => {
+  let now = 1000;
+  t.mock.method(Date, "now", () => now);
+  for (const game of ["wordchain", "categories", "counting"] as const) {
+    const client = Object.assign(new EventEmitter(), {
+      destroy() {}, channels: { fetch: async () => null },
+    }) as unknown as Client;
+    const writes: unknown[] = [];
+    const pool = { async query(sql: string, values: unknown[]) {
+      if (!sql.startsWith("SELECT")) writes.push(values);
+      return { rows: [] };
+    } } as unknown as Pool;
+    const games = new Games(new Set(["apple", "elephant", "tiger"]), () => 0);
+    await registerGames(client, games, pool);
+    try {
+      now = 1000;
+      games.start("a", game, "owner", now);
+      const sent: string[] = [];
+      const reactions: string[] = [];
+      const emit = async (user: string, content: string) => {
+        (client as unknown as EventEmitter).emit(Events.MessageCreate, {
+          inGuild: () => true, author: { id: user, bot: false },
+          webhookId: null, channelId: "a", content,
+          async react(emoji: string) { reactions.push(emoji); },
+          channel: { async send(options: { content: string }) { sent.push(options.content); } },
+        });
+        await new Promise<void>(resolve => setImmediate(resolve));
+      };
+      if (game === "wordchain") {
+        await emit("one", "zzzz");
+        await emit("one", "elephant");
+        await emit("one", "tiger");
+        await emit("two", "elephant");
+        await emit("two", "tiger");
+        assert.deepEqual(reactions, ["❌", "✅", "⏳", "🔁", "✅"]);
+      } else if (game === "categories") {
+        await emit("one", "red");
+        await emit("two", "red");
+        await emit("two", "blue");
+        assert.deepEqual(reactions, ["✅", "🔁", "✅"]);
+      } else {
+        await emit("one", "1");
+        await emit("two", "2");
+        await emit("two", "3");
+        assert.deepEqual(reactions, ["✅", "✅", "❌"]);
+      }
+      assert.equal(sent.length, 0);
+      assert.equal(games.best("a", game), 2);
+      assert.ok(writes.length > 0);
+      now = game === "categories" ? 61_000 : 1_801_000;
+      await emit("one", "hello");
+      await emit("two", "hello again");
+      assert.equal(sent.length, 1);
+      assert.match(sent[0]!, /finished!/);
+      assert.match(sent[0]!, /(?:Shared score|Best streak): \*\*2/);
+      assert.equal(games.active("a"), undefined);
+    } finally {
+      await client.destroy();
+    }
+  }
+});

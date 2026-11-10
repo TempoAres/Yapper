@@ -667,10 +667,13 @@ for `@everyone`. `/games` posts the rules and category list publicly.
 
 - **Word chain:** English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats
-  or consecutive turns by the same player. Invalid answers leave the chain intact.
-- **Category rush:** a randomly selected curated category, with 30 seconds to
+  or consecutive turns by the same player. Reactions: ✅ accepted, ❌ invalid,
+  🔁 already used, ⏳ wait for another player. Invalid answers leave the chain intact.
+- **Category rush:** a randomly selected curated category, with 60 seconds to
   find different accepted answers together. Repeats add nothing; grey/gray count
-  as one answer. There are **12 categories**: colours, planets, days/months,
+  as one answer. ✅ marks accepted answers and 🔁 marks repeats. Multi-word
+  answers such as `Wither skeleton` work in one message; capitalization, repeated
+  spaces, and underscores are accepted across categories. There are **12 categories**: colours, planets, days/months,
   animals, fruits, vegetables, countries, sports, musical instruments, Minecraft
   mobs, Minecraft blocks, and jobs/professions. `/games` lists all themes.
   Other categories use curated English lists. Minecraft blocks accepts all
@@ -685,7 +688,8 @@ for `@everyone`. `/games` posts the rules and category list publicly.
 - **Counting:** take turns starting at 1. Every multiple of five becomes `yap`.
   Valid turns get a ✅ reaction, including new records, without a confirmation
   message. Records still persist. Wrong numbers or consecutive turns reset the
-  streak with an explanation; ordinary chat is ignored. Requires Add Reactions
+  streak with ❌; start again at 1; ordinary chat is ignored. The final result reports the
+  round's best streak. Requires Add Reactions
   and Read Message History.
 - **Higher/lower:** guess a random secret whole number from 1 to 10,000 inclusive.
   The bot reacts ⬆️ when the secret is higher and ⬇️ when it is lower. Anyone
@@ -698,7 +702,9 @@ for `@everyone`. `/games` posts the rules and category list publicly.
   Each new correct guess adds one durable win; stop/expiry do not count.
   Imports are applied once, and message IDs prevent duplicate win credit.
 
-Scores and records are shared, with no personal ranking or game-specific XP awards (normal message XP still applies). Channel
+All games use reactions for turn feedback and post one final result after the
+start instructions. Add Reactions and Read Message History are required for all
+games. Scores and records are shared, with no personal ranking or game-specific XP awards (normal message XP still applies). Channel
 records persist in PostgreSQL; active rounds end when the bot restarts. Counting,
 word chain, and higher/lower expire after 30 minutes without a valid turn. Bots and webhooks
 cannot play. Message Content Intent and channel send/view permissions are required.

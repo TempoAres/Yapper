@@ -309,6 +309,7 @@ export const categories = [
     answers: [
       "zombie",
       "skeleton",
+      "wither skeleton",
       "creeper",
       "spider",
       "enderman",
@@ -434,6 +435,7 @@ interface Session {
   game: GameName;
   starter: string;
   score: number;
+  peakScore: number;
   lastUser: string | undefined;
   word: string;
   used: Set<string>;
@@ -445,7 +447,7 @@ interface Session {
 export interface GameResult {
   text: string;
   completed?: boolean;
-  reaction?: "⬆️" | "⬇️" | "✅";
+  reaction?: "⬆️" | "⬇️" | "✅" | "❌" | "🔁" | "⏳";
   game: GameName;
   score: number;
 }
@@ -487,24 +489,25 @@ export class Games {
       game,
       starter,
       score: 0,
+      peakScore: 0,
       lastUser: undefined,
       word: "apple",
       used: new Set(game === "wordchain" ? ["apple"] : []),
       category,
       target: game === "higherlower" ? Math.floor(this.random() * 10_000) + 1 : 0,
       guesses: 0,
-      expiresAt: now + (game === "categories" ? 30_000 : 30 * 60_000),
+      expiresAt: now + (game === "categories" ? 60_000 : 30 * 60_000),
     });
     return game === "higherlower"
       ? "Higher/lower started! Guess the secret whole number from **1 to 10,000**. Anyone can guess, including consecutive turns. I react ⬆️ if the secret number is higher and ⬇️ if it is lower. A correct guess ends the round. Ends after 30 minutes without a valid guess."
       : game === "wordchain"
-      ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. Build a shared chain! Ends after 30 minutes without a valid turn."
+      ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. ✅ accepted, ❌ invalid, 🔁 already used, ⏳ wait for another player. The next letter is the last letter of the accepted word. Build a shared chain! Ends after 30 minutes without a valid turn."
       : game === "counting"
-        ? "Counting started! Send **1**. Take turns counting upward; replace every multiple of 5 with **yap**. I confirm valid turns with ✅ reactions. A wrong number or consecutive turn resets the streak. Ordinary chat is ignored. Ends after 30 minutes without a valid turn."
-        : `Category rush! **${category.name}** — find as many different answers together as possible in **30 seconds**. One answer per message; repeats do not add points. ${
+        ? "Counting started! Send **1**. Take turns counting upward; replace every multiple of 5 with **yap**. ✅ means a valid turn; ❌ means a wrong number or consecutive turn and resets the streak; start again at **1**. Ordinary chat is ignored. Ends after 30 minutes without a valid turn."
+        : `Category rush! **${category.name}** — find as many different answers together as possible in **60 seconds**. One answer per message. ✅ accepted, 🔁 already counted; repeats do not add points. ${
             category.name === "Minecraft blocks"
               ? `All **${minecraftBlockCount.toLocaleString("en-US")} blocks** from **Minecraft Java ${minecraftVersion}**. Type **Blue Ice** or **Ice** as separate messages — both count as different answers. **Smooth Stone** works too. Spaces or underscores are accepted, and capitalization does not matter. Blue Ice and blue_ice are the same answer.`
-              : `Example: **${category.answers[0]}**. Multi-word answers go in one message; capitalization does not matter. Uses a curated English answer list.`
+              : `Example: **${category.name === "Minecraft mobs" ? "Wither skeleton" : category.answers.find((answer) => answer.includes(" ")) ?? category.answers[0]}**. Multi-word answers go in one message; spaces or underscores are accepted, and capitalization does not matter. Uses a curated English answer list.`
           }`;
   }
   stop(
@@ -515,7 +518,9 @@ export class Games {
     if (!s || s.game !== game) return `${game} is not running in this channel.`;
     this.sessions.delete(channel);
     if (game === "higherlower") return "higherlower stopped.";
-    return `${game} stopped. Shared score: **${s.score}**.`;
+    return game === "counting"
+      ? `counting stopped. Best streak: **${s.peakScore}**.`
+      : `${game} stopped. Shared score: **${s.score}**.`;
   }
   expire(channel: string, now = Date.now()): GameResult | undefined {
     const s = this.sessions.get(channel);
@@ -524,9 +529,9 @@ export class Games {
     return {
       text: s.game === "higherlower"
         ? "Higher/lower expired after 30 minutes without a valid guess. Start another with /game higherlower start."
-        : `${s.game} finished! Shared score: **${s.score}**. Start another with /game ${s.game} start.`,
+        : `${s.game} finished! ${s.game === "counting" ? `Best streak: **${s.peakScore}**` : `Shared score: **${s.score}**`}. Start another with /game ${s.game} start.`,
       game: s.game,
-      score: s.score,
+      score: s.game === "counting" ? s.peakScore : s.score,
     };
   }
   channels(): string[] {
@@ -543,7 +548,9 @@ export class Games {
     const s = this.sessions.get(channel);
     if (!s) return;
     const answer = content.trim().toLowerCase();
-    let text: string;
+    const feedback = (reaction: NonNullable<GameResult["reaction"]>): GameResult => ({
+      text: "", reaction, game: s.game, score: s.score,
+    });
     if (s.game === "higherlower") {
       if (!/^\d{1,5}$/.test(answer)) return;
       const guess = Number(answer);
@@ -571,61 +578,42 @@ export class Games {
       const expected = next % 5 === 0 ? "yap" : String(next);
       if (answer !== expected || user === s.lastUser) {
         const score = s.score;
-        const repeated = user === s.lastUser;
         s.score = 0;
         s.lastUser = undefined;
         return {
-          text: `Oops! ${repeated ? "Take turns." : `Expected **${expected}** (different players must take turns).`} Streak ended at **${score}**. Start again at **1**.`,
+          text: "",
+          reaction: "❌",
           game: s.game,
           score,
         };
       }
       s.score++;
+      s.peakScore = Math.max(s.peakScore, s.score);
       s.lastUser = user;
       s.expiresAt = now + 30 * 60_000;
       return { text: "", reaction: "✅", game: s.game, score: s.score };
     } else if (s.game === "wordchain") {
       if (!/^[a-z]{2,40}$/.test(answer)) return;
-      if (!this.words.has(answer))
-        return {
-          text: "That word is not in the English dictionary. The chain is unchanged.",
-          game: s.game,
-          score: s.score,
-        };
-      if (s.used.has(answer))
-        return {
-          text: "That word has already been used. Try another!",
-          game: s.game,
-          score: s.score,
-        };
-      if (s.lastUser === user)
-        return {
-          text: "Let another player take the next turn!",
-          game: s.game,
-          score: s.score,
-        };
-      if (!answer.startsWith(s.word.slice(-1)))
-        return {
-          text: `The next word must start with **${s.word.slice(-1)}**.`,
-          game: s.game,
-          score: s.score,
-        };
+      if (!this.words.has(answer)) return feedback("❌");
+      if (s.used.has(answer)) return feedback("🔁");
+      if (s.lastUser === user) return feedback("⏳");
+      if (!answer.startsWith(s.word.slice(-1))) return feedback("❌");
       s.word = answer;
       s.used.add(answer);
       s.score++;
-      text = `✅ Chain: **${s.score}**. Next letter: **${answer.slice(-1)}**.`;
     } else {
       const minecraft = s.category.name === "Minecraft blocks";
-      if (!minecraft && !(s.category.answers as readonly string[]).includes(answer)) return;
+      const normalized = answer.replace(/[_\s]+/g, " ");
+      if (!minecraft && !(s.category.answers as readonly string[]).includes(normalized)) return;
       // Block aliases share a registry identity; grey/gray share a colour identity.
-      const key = minecraft ? minecraftBlockKey(answer) : answer === "gray" ? "grey" : answer;
-      if (!key || s.used.has(key)) return;
+      const key = minecraft ? minecraftBlockKey(answer) : normalized === "gray" ? "grey" : normalized;
+      if (!key) return;
+      if (s.used.has(key)) return feedback("🔁");
       s.used.add(key);
       s.score++;
-      text = `✅ **${s.score}** different answers together!`;
     }
     s.lastUser = user;
     if (s.game !== "categories") s.expiresAt = now + 30 * 60_000;
-    return { text, game: s.game, score: s.score };
+    return feedback("✅");
   }
 }

@@ -17,10 +17,11 @@ export const gamesCommand: BotCommand = {
     await i.editReply({
       content: [
         "**Cooperative games**",
-        "**wordchain** — build an English word chain; no repeats or consecutive turns.",
-        `**categories** — find unique answers in 30 seconds. **${categories.length} categories:** ${categories.map((category) => category.name).join(", ")}.`,
-        "**counting** — take turns counting; multiples of five become “yap”. Valid turns get ✅ reactions. Mistakes reset the streak.",
+        "**wordchain** — build an English word chain; no repeats or consecutive turns. ✅ accepted, ❌ invalid, 🔁 repeat, ⏳ wait your turn.",
+        `**categories** — find unique answers in 60 seconds. **${categories.length} categories:** ${categories.map((category) => category.name).join(", ")}.`,
+        "**counting** — take turns counting; multiples of five become “yap”. Valid turns get ✅ reactions. ❌ resets the streak; start again at 1.",
         "**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.",
+        "Turn feedback uses reactions; only the final result is posted after the start instructions.",
         "Start: `/game X start` • Stop: `/game X stop`",
         "One game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Anyone can start or stop a game.",
       ].join("\n"),
@@ -121,14 +122,13 @@ export const gameCommand: BotCommand = {
     const starting = i.options.getSubcommand() === "start";
     if (
       starting &&
-      (game === "higherlower" || game === "counting") &&
       !permissions.has([
         PermissionFlagsBits.AddReactions,
         PermissionFlagsBits.ReadMessageHistory,
       ])
     ) {
       await i.reply({
-        content: `I need Add Reactions and Read Message History permissions for ${game === "counting" ? "counting" : "higher/lower"}.`,
+        content: "I need Add Reactions and Read Message History permissions for channel games.",
         flags: MessageFlags.Ephemeral,
       });
       return;
