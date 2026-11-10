@@ -6,6 +6,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import type { BotCommand } from "./command.js";
+import { buildCategoryAnswersResponse } from "./category-answers.js";
 import { yapperColors } from "../presentation/colors.js";
 import { categories, gameNames, type GameName } from "../services/games/games.js";
 
@@ -32,7 +33,7 @@ export const gamesCommand: BotCommand = {
             },
             {
               name: "🎯 Category rush · 60 seconds",
-              value: "`/game categories start`\nFind as many different answers as you can for a theme. Automatic picks cycle through every category before repeating. Choose your own with `category:`. **One answer per message**, including names with spaces like **Wither skeleton**.\n✅ Accepted · 🔁 Already counted",
+              value: "`/game categories start`\nFind as many different answers as you can for a theme. Automatic picks cycle through every category before repeating. Choose your own with `category:`. **One answer per message**, including names with spaces like **Wither skeleton**.\n✅ Accepted · 🔁 Already counted\n**Accepted answers:** `/game categories list category:`",
             },
             {
               name: "🔢 Counting",
@@ -84,6 +85,15 @@ export const gameCommand: BotCommand = {
         )
         .addSubcommand((s) =>
           s.setName("stop").setDescription("Stop category rush"),
+        )
+        .addSubcommand(s => s
+          .setName("list")
+          .setDescription("List the accepted answers for a category")
+          .addStringOption(option => option
+            .setName("category")
+            .setDescription("The category whose accepted answers to show")
+            .setRequired(true)
+            .addChoices(...categories.map(category => ({ name: category.name, value: category.name })))),
         ),
     )
     .addSubcommandGroup((g) =>
@@ -147,6 +157,10 @@ export const gameCommand: BotCommand = {
         content: formatHigherLowerLeaderboard(await context.higherLowerWins.leaderboard(i.guildId!)),
         allowedMentions: { parse: [] },
       });
+      return;
+    }
+    if (game === "categories" && i.options.getSubcommand() === "list") {
+      await i.reply(buildCategoryAnswersResponse(i.options.getString("category", true)));
       return;
     }
     const starting = i.options.getSubcommand() === "start";

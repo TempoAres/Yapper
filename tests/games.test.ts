@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Games, categories } from "../src/services/games/games.js";
-import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import { AttachmentBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import { gameCommand, gamesCommand } from "../src/commands/games.js";
 const create = () =>
   new Games(
@@ -22,7 +22,7 @@ test("commands expose /games and all four start/stop groups", () => {
     assert.ok("options" in group);
     assert.deepEqual(
       group.options?.map((s) => s.name),
-      group.name === "higherlower" ? ["start", "stop", "leaderboard"] : ["start", "stop"],
+      group.name === "higherlower" ? ["start", "stop", "leaderboard"] : group.name === "categories" ? ["start", "stop", "list"] : ["start", "stop"],
     );
   }
 });
@@ -500,4 +500,72 @@ test("category start dropdown contains all themes and never replaces an active g
   assert.match(replies.pop()!, /already playing/);
   assert.equal(g.sessionToken("a"), session);
   assert.deepEqual(session, before);
+});
+
+
+test("accepted-answer lists contain every curated answer and attach complete long lists", async () => {
+  const {buildCategoryAnswersResponse} = await import("../src/commands/category-answers.js");
+  for (const category of categories) {
+    const response = buildCategoryAnswersResponse(category.name);
+    assert.equal(response.flags, undefined);
+    assert.deepEqual(response.allowedMentions, {parse: []});
+    const embed = response.embeds![0]!;
+    assert.ok("toJSON" in embed);
+    const json = embed.toJSON();
+    assert.equal(json.title, `📚 ${category.name}`);
+    assert.ok(json.description!.length <= 4096);
+    if (response.files) {
+      assert.equal(response.files.length, 1);
+      const file = response.files[0];
+      assert.ok(file instanceof AttachmentBuilder);
+      assert.ok(Buffer.isBuffer(file.attachment));
+      const answers = file.attachment.toString("utf8").trim().split("\n").slice(2);
+      assert.deepEqual(answers, [...category.answers].sort((a,b) => a.localeCompare(b)));
+      assert.equal(file.name, "minecraft-blocks-accepted-answers.txt");
+      assert.equal(answers.length, 1286);
+    } else {
+      for (const answer of category.answers) assert.ok(json.description!.includes(`\`${answer}\``));
+    }
+  }
+  assert.ok(buildCategoryAnswersResponse("invalid").flags);
+});
+
+test("category list is public for everyone and does not alter rounds or category cycling", async () => {
+  const group = gameCommand.data.toJSON().options!.find(g => g.name === "categories")!;
+  assert.ok("options" in group);
+  const list = group.options!.find(option => option.name === "list")!;
+  assert.ok("options" in list);
+  const option = list.options![0]!;
+  assert.equal(option.name, "category");
+  assert.equal(option.required, true);
+  assert.ok("choices" in option);
+  assert.deepEqual(option.choices?.map(choice => choice.value), categories.map(c => c.name));
+  const g = create();
+  g.start("a", "wordchain", "owner");
+  g.message("a", "one", "elephant");
+  g.start("b", "categories", "owner");
+  g.stop("b", "categories");
+  const session = g.sessionToken("a");
+  const before = structuredClone(session);
+  let replied = false;
+  await gameCommand.execute({
+    inGuild: () => true, channelId: "a", user: {id: "ordinary-member"},
+    memberPermissions: {has: () => false},
+    channel: {isSendable: () => true, isThread: () => false},
+    guild: {members: {me: {permissionsIn: () => ({has: (bits: bigint[]) => !bits.includes(PermissionFlagsBits.AddReactions)})}}},
+    options: {getSubcommandGroup: () => "categories", getSubcommand: () => "list", getString: (name: string, required: boolean) => {
+      assert.equal(name, "category"); assert.equal(required, true); return "Minecraft mobs";
+    }},
+    async reply(response: {flags?: unknown; embeds: EmbedBuilder[]}) {
+      replied = true;
+      assert.equal(response.flags, undefined);
+      assert.match(response.embeds[0]!.toJSON().description!, /wither skeleton/);
+    },
+  } as unknown as Parameters<typeof gameCommand.execute>[0], {games: g} as Parameters<typeof gameCommand.execute>[1]);
+  assert.equal(replied, true);
+  assert.equal(g.sessionToken("a"), session);
+  assert.deepEqual(session, before);
+  assert.equal(g.wordchainScore("a"), 1);
+  assert.equal(g.message("a", "two", "tiger")?.score, 2);
+  assert.match(g.start("b", "categories", "owner"), /Planets/);
 });

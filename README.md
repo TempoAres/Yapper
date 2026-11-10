@@ -675,7 +675,10 @@ reaction meanings, category themes, and stopping rules.
 - **Category rush:** automatic picks rotate through a shuffled cycle of all 12
   categories in each channel before repeating, with no immediate repeat between
   cycles. Choose a theme with `/game categories start category:Minecraft mobs`
-  (Discord offers every category as a choice). Explicit picks count toward the
+  (Discord offers every category as a choice). List the accepted answers with
+  `/game categories list category:Minecraft mobs`. Lists are public; long lists
+  such as Minecraft blocks include a complete alphabetical text attachment.
+  Viewing answers does not start, stop, or change a round. Explicit picks count toward the
   current cycle but can be repeated on purpose. Every category gives 60 seconds to
   find different accepted answers together. Repeats add nothing; grey/gray count
   as one answer. ✅ marks accepted answers and 🔁 marks repeats. Multi-word
