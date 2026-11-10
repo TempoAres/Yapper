@@ -678,7 +678,18 @@ reaction meanings, category themes, and stopping rules.
   (Discord offers every category as a choice). List the accepted answers with
   `/game categories list category:Minecraft mobs`. Lists are public; long lists
   such as Minecraft blocks include a complete alphabetical text attachment.
-  Viewing answers does not start, stop, or change a round. Explicit picks count toward the
+  Viewing answers does not start, stop, or change a round.
+  Expanded lists include **183 colours**, **290 animals**, **222 sports**,
+  **245 musical instruments**, **419 jobs/professions**, and **254 countries,
+  territories and UK constituent countries**. The country list covers all 193
+  UN members plus Palestine and Vatican City; Kosovo and Taiwan are accepted
+  too. Common names, official country names and familiar aliases (USA, UK,
+  UAE, Czech Republic, Côte d’Ivoire) work. Aliases and grey/gray shade
+  spellings count once. Country data is bundled from the pinned source in
+  `country-data.ts`, without runtime network requests. The country-name/alias
+  database is derived from mledoze/countries under ODbL 1.0 (see
+  `licenses/countries-ODbL-1.0.txt`); the complete modified name/alias data and
+  source attribution are included with `/game categories list category:Countries`. Explicit picks count toward the
   current cycle but can be repeated on purpose. Every category gives 60 seconds to
   find different accepted answers together. Repeats add nothing; grey/gray count
   as one answer. ✅ marks accepted answers and 🔁 marks repeats. Multi-word

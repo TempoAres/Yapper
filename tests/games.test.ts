@@ -519,10 +519,16 @@ test("accepted-answer lists contain every curated answer and attach complete lon
       const file = response.files[0];
       assert.ok(file instanceof AttachmentBuilder);
       assert.ok(Buffer.isBuffer(file.attachment));
-      const answers = file.attachment.toString("utf8").trim().split("\n").slice(2);
+      const text = file.attachment.toString("utf8");
+      const answers = text.trim().split("\n").slice(2).map(line => category.name === "Countries" ? line.split(" — also: ")[0] : line);
+      if (category.name === "Countries") {
+        assert.match(text, /ODbL 1.0/);
+        const {countryAliases} = await import("../src/services/games/country-data.js");
+        for (const alias of Object.keys(countryAliases)) assert.ok(text.includes(alias), alias);
+      }
       assert.deepEqual(answers, [...category.answers].sort((a,b) => a.localeCompare(b)));
-      assert.equal(file.name, "minecraft-blocks-accepted-answers.txt");
-      assert.equal(answers.length, 1286);
+      assert.equal(file.name, `${category.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-accepted-answers.txt`);
+      if (category.name === "Minecraft blocks") assert.equal(answers.length, 1286);
     } else {
       for (const answer of category.answers) assert.ok(json.description!.includes(`\`${answer}\``));
     }
@@ -568,4 +574,67 @@ test("category list is public for everyone and does not alter rounds or category
   assert.equal(g.wordchainScore("a"), 1);
   assert.equal(g.message("a", "two", "tiger")?.score, 2);
   assert.match(g.start("b", "categories", "owner"), /Planets/);
+});
+
+
+test("expanded categories contain at least 100 unique normalized answers and accept every listed name", async () => {
+  const {expandedCategoryAnswers, normalizeCategoryAnswer} = await import("../src/services/games/category-data.js");
+  for (const [name, answers] of Object.entries(expandedCategoryAnswers)) {
+    assert.ok(answers.length >= 100, name);
+    assert.equal(new Set(answers).size, answers.length, name);
+    const g = create();
+    g.start("a", "categories", "owner", 0, name);
+    for (const [index, answer] of answers.entries()) {
+      assert.equal(normalizeCategoryAnswer(answer), answer);
+      assert.equal(g.message("a", "u", answer, 1)?.score, index + 1, `${name}: ${answer}`);
+      assert.equal(g.message("a", "u", answer.toUpperCase().replace(/ /g, "_"), 2)?.reaction, "🔁");
+    }
+  }
+});
+
+test("countries cover all 193 UN members, both observer states and familiar additional countries", async () => {
+  const {countryNamesByCode, countryNames} = await import("../src/services/games/country-data.js");
+  const codes = `AFG ALB DZA AND AGO ATG ARG ARM AUS AUT AZE BHS BHR BGD BRB BLR BEL BLZ BEN BTN BOL BIH BWA BRA BRN BGR BFA BDI CPV KHM CMR CAN CAF TCD CHL CHN COL COM COG CRI CIV HRV CUB CYP CZE PRK COD DNK DJI DMA DOM ECU EGY SLV GNQ ERI EST SWZ ETH FJI FIN FRA GAB GMB GEO DEU GHA GRC GRD GTM GIN GNB GUY HTI HND HUN ISL IND IDN IRN IRQ IRL ISR ITA JAM JPN JOR KAZ KEN KIR KWT KGZ LAO LVA LBN LSO LBR LBY LIE LTU LUX MDG MWI MYS MDV MLI MLT MHL MRT MUS MEX FSM MCO MNG MNE MAR MOZ MMR NAM NRU NPL NLD NZL NIC NER NGA MKD NOR OMN PAK PLW PAN PNG PRY PER PHL POL PRT QAT KOR MDA ROU RUS RWA KNA LCA VCT WSM SMR STP SAU SEN SRB SYC SLE SGP SVK SVN SLB SOM ZAF SSD ESP LKA SDN SUR SWE CHE SYR TJK THA TLS TGO TON TTO TUN TUR TKM TUV UGA UKR ARE GBR TZA USA URY UZB VUT VEN VNM YEM ZMB ZWE`.split(" ");
+  assert.equal(codes.length, 193);
+  for (const code of [...codes, "PSE", "VAT"]) {
+    assert.ok(countryNamesByCode[code], code);
+    assert.ok(countryNames.includes(countryNamesByCode[code]!), code);
+  }
+  for (const name of ["kosovo", "taiwan", "england", "scotland", "wales", "northern ireland"])
+    assert.ok(countryNames.includes(name), name);
+});
+
+test("common aliases, accents and spelling variants cannot score twice", () => {
+  const pairs = [
+    ["Countries", "USA", "United States"], ["Countries", "UK", "United Kingdom"],
+    ["Countries", "UAE", "United Arab Emirates"], ["Countries", "Czech Republic", "Czechia"],
+    ["Countries", "Côte d’Ivoire", "Ivory Coast"], ["Countries", "Türkiye", "Turkey"],
+    ["Countries", "DRC", "Democratic Republic of the Congo"], ["Countries", "Vatican", "Vatican City"],
+    ["Colours", "light blue", "LIGHT_BLUE"], ["Colours", "light gray", "light grey"],
+    ["Colours", "darkgray", "dark grey"], ["Animals", "cougar", "puma"],
+    ["Animals", "rhino", "rhinoceros"], ["Sports", "soccer", "football"],
+    ["Sports", "ping pong", "table tennis"], ["Musical instruments", "drum kit", "drums"],
+    ["Musical instruments", "bongos", "bongo"], ["Jobs and professions", "veterinarian", "vet"],
+    ["Jobs and professions", "physician", "doctor"], ["Jobs and professions", "pediatrician", "paediatrician"],
+  ];
+  for (const [category, first, duplicate] of pairs) {
+    const g = create();
+    g.start("a", "categories", "owner", 0, category);
+    assert.equal(g.message("a", "u", first!, 1)?.score, 1, `${category}: ${first}`);
+    assert.equal(g.message("a", "u", duplicate!, 2)?.reaction, "🔁", `${category}: ${duplicate}`);
+  }
+});
+
+test("active rounds with the previous category object immediately accept expanded answers", () => {
+  const g = create();
+  g.start("a", "categories", "owner", 0, "Colours");
+  const session = g.sessionToken("a") as {category: {name: string; answers: string[]}};
+  session.category = {name: "Colours", answers: ["red", "blue", "grey", "gray"]};
+  const legacy = session.category;
+  assert.equal(g.message("a", "u", "red", 1)?.score, 1);
+  assert.equal(g.message("a", "u", "light blue", 2)?.score, 2);
+  assert.equal(session.category, legacy);
+  assert.equal(g.message("a", "u", "Light_Blue", 3)?.reaction, "🔁");
+  assert.equal(g.expire("a", 59_999), undefined);
+  assert.equal(g.expire("a", 60_000)?.score, 2);
 });
