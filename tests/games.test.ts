@@ -335,7 +335,7 @@ test("all games require reaction permissions before starting", async () => {
 });
 
 
-test("/score reports the live word-chain score privately without changing any game state", async () => {
+test("/score reports the live word-chain score publicly for any member without changing any game state", async () => {
   const { scoreCommand } = await import("../src/commands/score.js");
   const { commandsByName } = await import("../src/commands/index.js");
   assert.equal(commandsByName.get("score"), scoreCommand);
@@ -349,8 +349,9 @@ test("/score reports the live word-chain score privately without changing any ga
   const query = async (channelId = "a", inGuild = true) => {
     await scoreCommand.execute({
       channelId, inGuild: () => inGuild,
-      async reply(value: {content: string; flags: number; allowedMentions: unknown}) {
-        assert.equal(value.flags, 64);
+      memberPermissions: { has: () => false },
+      async reply(value: {content: string; flags?: number; allowedMentions: unknown}) {
+        assert.equal(value.flags, undefined);
         assert.deepEqual(value.allowedMentions, {parse: []});
         replies.push(value.content);
       },
@@ -390,4 +391,39 @@ test("reading a score never extends the deadline or expires/removes a session", 
   assert.deepEqual(session, before);
   assert.equal(g.expire("a", 1_800_001)?.score, 1);
   assert.equal(g.wordchainScore("a", 1_800_002), undefined);
+});
+
+
+test("word chain announces each 100-point milestone once and keeps playing", () => {
+  const words = Array.from({length: 201}, (_, index) => {
+    let value = index;
+    let middle = "";
+    for (let digit = 0; digit < 3; digit++) {
+      middle += String.fromCharCode(97 + value % 26);
+      value = Math.floor(value / 26);
+    }
+    return `e${middle}e`;
+  });
+  const g = new Games(new Set(words));
+  g.start("a", "wordchain", "owner", 0);
+  const session = g.sessionToken("a");
+  const announced: number[] = [];
+  for (const [index, word] of words.entries()) {
+    const score = index + 1;
+    const result = g.message("a", String(index % 2), word, score)!;
+    assert.equal(result.score, score);
+    assert.equal(result.reaction, "✅");
+    if (score % 100 === 0) {
+      announced.push(score);
+      assert.match(result.text, new RegExp(`milestone: \\*\\*${score}\\*\\*`));
+      assert.match(result.text, /Next letter: \*\*e/);
+      const before = structuredClone(session);
+      assert.equal(g.message("a", "other", word, score)?.text, "");
+      assert.equal(g.message("a", String(index % 2), words[index + 1]!, score)?.text, "");
+      assert.deepEqual(session, before);
+    } else assert.equal(result.text, "");
+  }
+  assert.deepEqual(announced, [100, 200]);
+  assert.equal(g.sessionToken("a"), session);
+  assert.equal(g.wordchainScore("a", 202), 201);
 });

@@ -666,8 +666,9 @@ commands. In bluddington, `#games` (`1222840553121779722`) explicitly allows thi
 for `@everyone`. `/games` posts a public embed with a section for each game, start commands,
 reaction meanings, category themes, and stopping rules.
 
-- **Word chain:** `/score` privately shows this channel's current score without
-  changing the round, turn order, or inactivity deadline. English dictionary words, at least two letters. Start from
+- **Word chain:** `/score` is available to everyone and publicly shows this channel's current score without
+  changing the round, turn order, or inactivity deadline. The bot also posts the
+  score automatically at each 100-word milestone. English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats
   or consecutive turns by the same player. Reactions: ✅ accepted, ❌ invalid,
   🔁 already used, ⏳ wait for another player. Invalid answers leave the chain intact.
@@ -705,7 +706,8 @@ reaction meanings, category themes, and stopping rules.
   Imports are applied once, and message IDs prevent duplicate win credit.
 
 All games use reactions for turn feedback and post one final result after the
-start instructions. Add Reactions and Read Message History are required for all
+start instructions. Word chain also posts a score update at every 100 points,
+and anyone can use `/score` for a public update without affecting the round. Add Reactions and Read Message History are required for all
 games. Scores and records are shared, with no personal ranking or game-specific XP awards (normal message XP still applies). Channel
 records persist in PostgreSQL; active rounds end when the bot restarts. Counting,
 word chain, and higher/lower expire after 30 minutes without a valid turn. Bots and webhooks

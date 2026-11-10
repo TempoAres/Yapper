@@ -219,3 +219,43 @@ test("all score games react throughout play and send exactly one final summary",
     }
   }
 });
+
+test("word-chain listener posts public milestones only at 100 and 200", { timeout: 3000 }, async () => {
+  const client = Object.assign(new EventEmitter(), {
+    destroy() {}, channels: { fetch: async () => null },
+  }) as unknown as Client;
+  const pool = {async query() { return {rows: []}; }} as unknown as Pool;
+  const words = Array.from({length: 201}, (_, index) =>
+    `e${String.fromCharCode(97 + index % 26, 97 + Math.floor(index / 26))}e`);
+  const games = new Games(new Set(words));
+  await registerGames(client, games, pool);
+  try {
+    games.start("a", "wordchain", "owner");
+    const sent: string[] = [];
+    const reactions: string[] = [];
+    let done!: () => void;
+    const finished = new Promise<void>(resolve => { done = resolve; });
+    for (const [index, content] of words.entries())
+      (client as unknown as EventEmitter).emit(Events.MessageCreate, {
+        inGuild: () => true, author: {id: String(index % 2), bot: false},
+        webhookId: null, channelId: "a", content,
+        async react(emoji: string) {
+          reactions.push(emoji);
+          if (reactions.length === words.length) done();
+        },
+        channel: {async send(value: {content: string; allowedMentions: unknown}) {
+          assert.deepEqual(value.allowedMentions, {parse: []});
+          sent.push(value.content);
+        }},
+      });
+    await finished;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(sent.length, 2);
+    assert.match(sent[0]!, /milestone: \*\*100/);
+    assert.match(sent[1]!, /milestone: \*\*200/);
+    assert.equal(reactions.length, 201);
+    assert.ok(reactions.every(reaction => reaction === "✅"));
+    assert.equal(games.wordchainScore("a"), 201);
+    assert.equal(games.active("a"), "wordchain");
+  } finally { await client.destroy(); }
+});

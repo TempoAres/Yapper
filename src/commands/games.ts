@@ -28,7 +28,7 @@ export const gamesCommand: BotCommand = {
           .addFields(
             {
               name: "🔗 Word chain",
-              value: "`/game wordchain start`\nStart from **apple**. Each English word begins with the last letter of the previous accepted word. Take turns; no repeats.\n✅ Accepted · ❌ Invalid · 🔁 Already used · ⏳ Wait your turn",
+              value: "`/game wordchain start`\nStart from **apple**. Each English word begins with the last letter of the previous accepted word. Take turns; no repeats.\n✅ Accepted · ❌ Invalid · 🔁 Already used · ⏳ Wait your turn\n**Score:** `/score` · Automatic updates every **100 words**",
             },
             {
               name: "🎯 Category rush · 60 seconds",
@@ -45,7 +45,7 @@ export const gamesCommand: BotCommand = {
             { name: `📚 ${categories.length} category themes`, value: themes.join("\n") },
             {
               name: "Playing & stopping",
-              value: "**One game per channel.** Anyone can stop it: replace `start` with `stop` in its command.\nTurn feedback uses reactions; the final result gets one message.\nWord chain, counting and higher/lower end after **30 minutes without a valid turn**. Active rounds end when the bot restarts.",
+              value: "**One game per channel.** Anyone can stop it: replace `start` with `stop` in its command.\nTurn feedback uses reactions, with word-chain updates every **100 words** and a final result when the game ends.\nWord chain, counting and higher/lower end after **30 minutes without a valid turn**. Active rounds end when the bot restarts.",
             },
           )
           .setFooter({ text: "Shared scores · Channel records survive restarts" }),

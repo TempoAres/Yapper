@@ -1,4 +1,4 @@
-import { MessageFlags, SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import type { BotCommand } from "./command.js";
 
 export const scoreCommand: BotCommand = {
@@ -16,7 +16,6 @@ export const scoreCommand: BotCommand = {
         : score === undefined
           ? "No word chain is running in this channel. Start one with `/game wordchain start`."
           : `🔗 Current word-chain score: **${score}**.`,
-      flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     });
   },

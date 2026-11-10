@@ -620,6 +620,9 @@ export class Games {
     }
     s.lastUser = user;
     if (s.game !== "categories") s.expiresAt = now + 30 * 60_000;
-    return feedback("✅");
+    const result = feedback("✅");
+    if (s.game === "wordchain" && s.score % 100 === 0)
+      result.text = `🎉 Word-chain milestone: **${s.score}** words together! Next letter: **${s.word.slice(-1)}**.`;
+    return result;
   }
 }
