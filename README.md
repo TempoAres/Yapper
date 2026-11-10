@@ -666,7 +666,8 @@ commands. In bluddington, `#games` (`1222840553121779722`) explicitly allows thi
 for `@everyone`. `/games` posts a public embed with a section for each game, start commands,
 reaction meanings, category themes, and stopping rules.
 
-- **Word chain:** English dictionary words, at least two letters. Start from
+- **Word chain:** `/score` privately shows this channel's current score without
+  changing the round, turn order, or inactivity deadline. English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats
   or consecutive turns by the same player. Reactions: ✅ accepted, ❌ invalid,
   🔁 already used, ⏳ wait for another player. Invalid answers leave the chain intact.

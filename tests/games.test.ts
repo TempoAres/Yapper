@@ -333,3 +333,61 @@ test("all games require reaction permissions before starting", async () => {
     assert.equal(g.active("a"), undefined);
   }
 });
+
+
+test("/score reports the live word-chain score privately without changing any game state", async () => {
+  const { scoreCommand } = await import("../src/commands/score.js");
+  const { commandsByName } = await import("../src/commands/index.js");
+  assert.equal(commandsByName.get("score"), scoreCommand);
+  assert.equal(scoreCommand.data.toJSON().default_member_permissions, null);
+  const g = create();
+  const now = Date.now();
+  g.start("a", "wordchain", "owner", now);
+  g.remember("a", "wordchain", 123);
+  const session = g.sessionToken("a");
+  const replies: string[] = [];
+  const query = async (channelId = "a", inGuild = true) => {
+    await scoreCommand.execute({
+      channelId, inGuild: () => inGuild,
+      async reply(value: {content: string; flags: number; allowedMentions: unknown}) {
+        assert.equal(value.flags, 64);
+        assert.deepEqual(value.allowedMentions, {parse: []});
+        replies.push(value.content);
+      },
+    } as unknown as Parameters<typeof scoreCommand.execute>[0], {games: g} as Parameters<typeof scoreCommand.execute>[1]);
+  };
+  await query();
+  assert.match(replies.pop()!, /score: \*\*0/);
+  g.message("a", "one", "elephant", now + 1);
+  const before = structuredClone(session);
+  await query();
+  await query();
+  assert.match(replies.pop()!, /score: \*\*1/);
+  assert.equal(g.sessionToken("a"), session);
+  assert.deepEqual(session, before);
+  assert.equal(g.best("a", "wordchain"), 123);
+  assert.equal(g.message("a", "one", "tiger", now + 2)?.reaction, "⏳");
+  assert.equal(g.message("a", "two", "tiger", now + 3)?.score, 2);
+  assert.equal(g.message("a", "three", "elephant", now + 4)?.reaction, "🔁");
+  await query("other");
+  assert.match(replies.pop()!, /No word chain/);
+  g.start("count", "counting", "owner", now);
+  await query("count");
+  assert.match(replies.pop()!, /No word chain/);
+  await query("a", false);
+  assert.match(replies.pop()!, /server channels/);
+});
+
+test("reading a score never extends the deadline or expires/removes a session", () => {
+  const g = create();
+  g.start("a", "wordchain", "owner", 0);
+  g.message("a", "one", "elephant", 1);
+  const session = g.sessionToken("a");
+  const before = structuredClone(session);
+  assert.equal(g.wordchainScore("a", 1_800_000), 1);
+  assert.equal(g.wordchainScore("a", 1_800_001), undefined);
+  assert.equal(g.sessionToken("a"), session);
+  assert.deepEqual(session, before);
+  assert.equal(g.expire("a", 1_800_001)?.score, 1);
+  assert.equal(g.wordchainScore("a", 1_800_002), undefined);
+});

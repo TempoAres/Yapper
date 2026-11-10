@@ -473,6 +473,12 @@ export class Games {
   active(channel: string): GameName | undefined {
     return this.sessions.get(channel)?.game;
   }
+  wordchainScore(channel: string, now = Date.now()): number | undefined {
+    const session = this.sessions.get(channel);
+    if (session?.game === "wordchain" && now < session.expiresAt)
+      return session.score;
+    return undefined;
+  }
   start(
     channel: string,
     game: GameName,
