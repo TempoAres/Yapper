@@ -86,6 +86,7 @@ interface Session {
 }
 export interface GameResult {
   text: string;
+  completed?: boolean;
   reaction?: "⬆️" | "⬇️" | "✅";
   game: GameName;
   score: number;
@@ -201,6 +202,7 @@ export class Games {
       this.sessions.delete(channel);
       return {
         text: `🎉 Correct! The number was **${s.target}**. Solved together in **${s.guesses}** ${s.guesses === 1 ? "guess" : "guesses"}! Start another with /game higherlower start.`,
+        completed: true,
         reaction: "✅",
         game: s.game,
         score: 0,

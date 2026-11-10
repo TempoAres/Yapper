@@ -674,7 +674,12 @@ Only the starter or a member with Manage Channels may stop it.
   The bot reacts ⬆️ when the secret is higher and ⬇️ when it is lower. Anyone
   can guess repeatedly; a correct guess gets ✅ and ends the round with the
   shared guess count. Other chat and out-of-range guesses are ignored. Requires
-  Add Reactions and Read Message History. No score or record is awarded.
+  Add Reactions and Read Message History. `/game higherlower leaderboard` shows
+  the server's total completed games and the top ten channels by new wins.
+  bluddington starts with the operator-supplied **922 historical wins** from bot
+  `934459165403906128`. These shared wins have no known channel attribution.
+  Each new correct guess adds one durable win; stop/expiry do not count.
+  Imports are applied once, and message IDs prevent duplicate win credit.
 
 Scores and records are shared, with no personal ranking or game-specific XP awards (normal message XP still applies). Channel
 records persist in PostgreSQL; active rounds end when the bot restarts. Counting,

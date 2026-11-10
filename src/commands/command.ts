@@ -1,3 +1,4 @@
+import type { HigherLowerWins } from "../services/games/higherlower-wins.js";
 import type { Games } from "../services/games/games.js";
 import type {
   ChatInputCommandInteraction,
@@ -25,6 +26,7 @@ export interface JournalCommandConfig {
 
 export interface CommandContext {
   games?: Games;
+  higherLowerWins?: HigherLowerWins;
   memberXpService: MemberXpService;
   leaderboardService: LeaderboardService;
   adminXpService: AdminXpService;

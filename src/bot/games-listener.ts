@@ -1,3 +1,4 @@
+import { HigherLowerWins } from "../services/games/higherlower-wins.js";
 import { Events, type Client } from "discord.js";
 import type { Pool } from "pg";
 import {
@@ -10,6 +11,7 @@ export async function registerGames(
   client: Client,
   games: Games,
   pool: Pool,
+  wins = new HigherLowerWins(pool),
 ): Promise<void> {
   const rows = await pool.query<{
     channel_id: string;
@@ -60,6 +62,11 @@ export async function registerGames(
         receivedAt,
       );
       if (!result) return;
+      if (result.completed && result.game === "higherlower") {
+        await wins.record(message.guildId, message.channelId, message.id);
+        const board = await wins.leaderboard(message.guildId);
+        result.text += `\n🏆 Total completed games: **${board.totalWins.toLocaleString("en-US")}**. View /game higherlower leaderboard.`;
+      }
       if (result.reaction) {
         try {
           await message.react(result.reaction);

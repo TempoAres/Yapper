@@ -39,6 +39,8 @@ test(
         author: { id: user, bot },
         webhookId: null,
         channelId: "a",
+        guildId: "server",
+        id: content,
         content,
         channel: {
           async send(options: {
@@ -92,7 +94,7 @@ test(
 );
 
 
-test("higher/lower listener reacts to guesses, announces wins and skips score records", { timeout: 2000 }, async () => {
+test("higher/lower listener reacts to guesses, persists one win and skips score records", { timeout: 2000 }, async () => {
   const writes: unknown[] = [];
   const pool = {
     async query(sql: string) {
@@ -105,7 +107,12 @@ test("higher/lower listener reacts to guesses, announces wins and skips score re
     channels: { fetch: async () => null },
   }) as unknown as Client;
   const games = new Games(new Set(), () => 0.4999);
-  await registerGames(client, games, pool);
+  const winCredits: string[][] = [];
+  const wins = {
+    async record(...ids: string[]) { winCredits.push(ids); },
+    async leaderboard() { return { totalWins: 923, legacyWins: 922, channels: [] }; },
+  } as unknown as import("../src/services/games/higherlower-wins.js").HigherLowerWins;
+  await registerGames(client, games, pool, wins);
   try {
     games.start("a", "higherlower", "owner");
     const reactions: string[] = [];
@@ -118,6 +125,8 @@ test("higher/lower listener reacts to guesses, announces wins and skips score re
         author: { id: "one", bot: false },
         webhookId: null,
         channelId: "a",
+        guildId: "server",
+        id: content,
         content,
         async react(emoji: string) { reactions.push(emoji); },
         channel: {
@@ -132,6 +141,8 @@ test("higher/lower listener reacts to guesses, announces wins and skips score re
     assert.deepEqual(reactions, ["⬆️", "⬇️", "✅"]);
     assert.equal(sent.length, 1);
     assert.match(sent[0]!, /5000.*3.*guesses/);
+    assert.match(sent[0]!, /Total completed games: \*\*923/);
+    assert.deepEqual(winCredits, [["server", "a", "5000"]]);
     assert.deepEqual(writes, []);
     assert.equal(games.active("a"), undefined);
   } finally {

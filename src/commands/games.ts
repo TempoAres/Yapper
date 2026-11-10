@@ -1,3 +1,4 @@
+import { formatHigherLowerLeaderboard } from "../services/games/higherlower-wins.js";
 import {
   MessageFlags,
   PermissionFlagsBits,
@@ -13,7 +14,7 @@ export const gamesCommand: BotCommand = {
   async execute(i) {
     await i.reply({
       content:
-        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Only the starter or Manage Channels members can stop a game.",
+        "**Cooperative games**\n**wordchain** — build an English word chain; no repeats or consecutive turns.\n**categories** — find unique answers to a curated category in 30 seconds.\n**counting** — take turns counting; multiples of five become “yap”. Mistakes reset the streak.\n**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.\nStart: `/game X start` • Stop: `/game X stop`\nOne game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Only the starter or Manage Channels members can stop a game.",
       flags: MessageFlags.Ephemeral,
     });
   },
@@ -64,6 +65,9 @@ export const gameCommand: BotCommand = {
         )
         .addSubcommand((s) =>
           s.setName("stop").setDescription("Stop higher/lower"),
+        )
+        .addSubcommand((s) =>
+          s.setName("leaderboard").setDescription("Show completed games and channel wins"),
         ),
     ),
   async execute(i, context) {
@@ -92,6 +96,18 @@ export const gameCommand: BotCommand = {
     }
     const game = i.options.getSubcommandGroup(true) as GameName;
     if (!gameNames.includes(game)) return;
+    if (game === "higherlower" && i.options.getSubcommand() === "leaderboard") {
+      if (!context.higherLowerWins) {
+        await i.reply({ content: "The wins leaderboard is unavailable.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await i.deferReply();
+      await i.editReply({
+        content: formatHigherLowerLeaderboard(await context.higherLowerWins.leaderboard(i.guildId!)),
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
     const starting = i.options.getSubcommand() === "start";
     if (
       starting &&

@@ -1,3 +1,4 @@
+import { HigherLowerWins } from "./services/games/higherlower-wins.js";
 import { readFileSync } from "node:fs";
 import wordListPath from "word-list";
 import { Games } from "./services/games/games.js";
@@ -78,6 +79,7 @@ async function main(): Promise<void> {
       loadMessageXpConfig(),
     );
     const reactionTracker = new ReactionTracker(reactionService);
+    const higherLowerWins = new HigherLowerWins(pool);
     const games = new Games(
       new Set(readFileSync(wordListPath, "utf8").split(/\r?\n/)),
     );
@@ -85,6 +87,7 @@ async function main(): Promise<void> {
       botConfig,
       {
         games,
+        higherLowerWins,
         memberXpService,
         leaderboardService,
         adminXpService,
@@ -106,7 +109,7 @@ async function main(): Promise<void> {
       messageXpTracker,
       reactionTracker,
     );
-    await registerGames(client, games, pool);
+    await registerGames(client, games, pool, higherLowerWins);
     reminderRunner = new ReminderRunner(client, reminderService);
     reminderRunner.start();
 

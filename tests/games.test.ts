@@ -19,7 +19,7 @@ test("commands expose /games and all four start/stop groups", () => {
     assert.ok("options" in group);
     assert.deepEqual(
       group.options?.map((s) => s.name),
-      ["start", "stop"],
+      group.name === "higherlower" ? ["start", "stop", "leaderboard"] : ["start", "stop"],
     );
   }
 });
@@ -106,6 +106,7 @@ test("higher/lower reacts toward the secret, ignores invalid guesses, and ends o
   assert.equal(g.message("a", "u", "4998", 4)?.text, "");
   const won = g.message("a", "u", " 5000 ", 5)!;
   assert.equal(won.reaction, "✅");
+  assert.equal(won.completed, true);
   assert.match(won.text, /5000.*4.*guesses/);
   assert.equal(won.score, 0);
   assert.equal(g.active("a"), undefined);
@@ -126,4 +127,37 @@ test("higher/lower includes both endpoints and expires after valid-guess inactiv
   assert.match(g.expire("a", 1_801_000)!.text, /expired/);
   g.start("a", "higherlower", "owner", 1_801_001);
   assert.equal(g.active("a"), "higherlower");
+});
+
+test("higher/lower leaderboard displays legacy wins without starting or stopping a round", async () => {
+  const { formatHigherLowerLeaderboard } = await import("../src/services/games/higherlower-wins.js");
+  const g = create();
+  g.start("a", "higherlower", "owner");
+  const session = g.sessionToken("a");
+  const board = { totalWins: 923, legacyWins: 922, channels: [{ channelId: "123", wins: 1 }] };
+  let reply: { content?: string; allowedMentions?: unknown } | undefined;
+  await gameCommand.execute({
+    inGuild: () => true,
+    guildId: "server",
+    channelId: "a",
+    channel: { isSendable: () => true, isThread: () => false },
+    guild: { members: { me: { permissionsIn: () => ({ has: () => true }) } } },
+    options: { getSubcommandGroup: () => "higherlower", getSubcommand: () => "leaderboard" },
+    async deferReply() {},
+    async editReply(value: typeof reply) { reply = value; },
+  } as unknown as Parameters<typeof gameCommand.execute>[0], {
+    games: g,
+    higherLowerWins: {
+      async leaderboard(guildId: string) {
+        assert.equal(guildId, "server");
+        return board;
+      },
+    },
+  } as unknown as Parameters<typeof gameCommand.execute>[1]);
+  assert.match(reply?.content ?? "", /Total completed games: \*\*923/);
+  assert.match(reply?.content ?? "", /previous bot: \*\*922/);
+  assert.match(reply?.content ?? "", /1\. <#123> — \*\*1/);
+  assert.deepEqual(reply?.allowedMentions, { parse: [] });
+  assert.equal(g.sessionToken("a"), session);
+  assert.match(formatHigherLowerLeaderboard({ totalWins: 922, legacyWins: 922, channels: [] }), /No new completed games yet/);
 });
