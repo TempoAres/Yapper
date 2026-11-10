@@ -673,7 +673,15 @@ for `@everyone`. `/games` posts the rules and category list publicly.
   as one answer. There are **12 categories**: colours, planets, days/months,
   animals, fruits, vegetables, countries, sports, musical instruments, Minecraft
   mobs, Minecraft blocks, and jobs/professions. `/games` lists all themes.
-  Answers use a curated English list; multi-word answers go in one message.
+  Other categories use curated English lists. Minecraft blocks accepts all
+  **1,286 registered blocks from Minecraft Java 26.3** (the stable release checked
+  on 2026-11-10), including technical blocks. Use English display names or block
+  IDs: `Blue Ice`, `blue_ice`, and `minecraft:blue_ice` identify the same block,
+  while `Ice` is a separate answer. Capitalization and repeated spaces do not
+  matter. `Smooth Stone` is accepted. `/game categories start` shows syntax
+  examples for the chosen category. Block data is bundled with the release;
+  future Minecraft updates require refreshing it from the pinned source registry
+  and language assets documented in `minecraft-blocks-data.ts`.
 - **Counting:** take turns starting at 1. Every multiple of five becomes `yap`.
   Valid turns get a ✅ reaction, including new records, without a confirmation
   message. Records still persist. Wrong numbers or consecutive turns reset the

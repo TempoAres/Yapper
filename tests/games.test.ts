@@ -227,3 +227,34 @@ test("/games acknowledges publicly then lists every category within Discord's me
     },
   } as unknown as Parameters<typeof gamesCommand.execute>[0], {} as Parameters<typeof gamesCommand.execute>[1]);
 });
+
+test("Minecraft blocks accepts every Java 26.3 registry ID and English name", async () => {
+  const { minecraftBlockNames } = await import("../src/services/games/minecraft-blocks-data.js");
+  const { minecraftBlockKey, minecraftBlockCount, minecraftVersion } = await import("../src/services/games/minecraft-blocks.js");
+  assert.equal(minecraftVersion, "26.3");
+  assert.equal(minecraftBlockCount, 1286);
+  for (const [id, name] of Object.entries(minecraftBlockNames)) {
+    assert.equal(minecraftBlockKey(id), id);
+    assert.equal(minecraftBlockKey(name), id);
+    assert.equal(minecraftBlockKey(`minecraft:${id}`), id);
+  }
+  assert.equal(minecraftBlockKey("diamond"), undefined);
+  assert.equal(minecraftBlockKey("not a real block"), undefined);
+});
+
+test("Minecraft category start explains spaces; Ice and Blue Ice score separately but aliases do not", () => {
+  const index = categories.findIndex(category => category.name === "Minecraft blocks");
+  const g = new Games(new Set(), () => (index + 0.5) / categories.length);
+  const start = g.start("a", "categories", "owner", 0);
+  assert.match(start, /Minecraft Java 26\.3/);
+  assert.match(start, /Blue Ice.*Ice.*separate messages/);
+  assert.match(start, /Spaces or underscores/);
+  assert.equal(g.message("a", "u", "Blue Ice", 1)?.score, 1);
+  assert.equal(g.message("a", "u", "blue_ice", 2), undefined);
+  assert.equal(g.message("a", "u", "Ice", 3)?.score, 2);
+  assert.equal(g.message("a", "u", "ice", 4), undefined);
+  assert.equal(g.message("a", "u", "  Smooth   Stone  ", 5)?.score, 3);
+  assert.equal(g.message("a", "u", "minecraft:smooth_stone", 6), undefined);
+  assert.equal(g.message("a", "u", "Stone", 7)?.score, 4);
+  assert.equal(g.message("a", "u", "diamond", 8), undefined);
+});

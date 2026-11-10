@@ -1,3 +1,10 @@
+import {
+  minecraftBlockAnswers,
+  minecraftBlockKey,
+  minecraftBlockCount,
+  minecraftVersion,
+} from "./minecraft-blocks.js";
+
 export const gameNames = [
   "wordchain",
   "categories",
@@ -375,65 +382,7 @@ export const categories = [
   },
   {
     name: "Minecraft blocks",
-    answers: [
-      "stone",
-      "dirt",
-      "grass block",
-      "cobblestone",
-      "sand",
-      "gravel",
-      "clay",
-      "glass",
-      "obsidian",
-      "bedrock",
-      "netherrack",
-      "end stone",
-      "deepslate",
-      "tuff",
-      "calcite",
-      "granite",
-      "diorite",
-      "andesite",
-      "oak log",
-      "oak planks",
-      "crafting table",
-      "furnace",
-      "chest",
-      "barrel",
-      "hopper",
-      "dispenser",
-      "dropper",
-      "piston",
-      "sticky piston",
-      "observer",
-      "redstone block",
-      "diamond block",
-      "gold block",
-      "iron block",
-      "emerald block",
-      "coal block",
-      "netherite block",
-      "beacon",
-      "enchanting table",
-      "bookshelf",
-      "anvil",
-      "brewing stand",
-      "respawn anchor",
-      "crying obsidian",
-      "soul sand",
-      "soul soil",
-      "glowstone",
-      "sea lantern",
-      "prismarine",
-      "sponge",
-      "terracotta",
-      "white wool",
-      "white concrete",
-      "pumpkin",
-      "melon",
-      "moss block",
-      "sculk",
-    ],
+    answers: minecraftBlockAnswers,
   },
   {
     name: "Jobs and professions",
@@ -552,7 +501,11 @@ export class Games {
       ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. Build a shared chain! Ends after 30 minutes without a valid turn."
       : game === "counting"
         ? "Counting started! Send **1**. Take turns counting upward; replace every multiple of 5 with **yap**. I confirm valid turns with ✅ reactions. A wrong number or consecutive turn resets the streak. Ordinary chat is ignored. Ends after 30 minutes without a valid turn."
-        : `Category rush! **${category.name}** — find as many different answers together as possible in **30 seconds**. One answer per message; repeats do not add points. Uses a curated answer list.`;
+        : `Category rush! **${category.name}** — find as many different answers together as possible in **30 seconds**. One answer per message; repeats do not add points. ${
+            category.name === "Minecraft blocks"
+              ? `All **${minecraftBlockCount.toLocaleString("en-US")} blocks** from **Minecraft Java ${minecraftVersion}**. Type **Blue Ice** or **Ice** as separate messages — both count as different answers. **Smooth Stone** works too. Spaces or underscores are accepted, and capitalization does not matter. Blue Ice and blue_ice are the same answer.`
+              : `Example: **${category.answers[0]}**. Multi-word answers go in one message; capitalization does not matter. Uses a curated English answer list.`
+          }`;
   }
   stop(
     channel: string,
@@ -662,14 +615,11 @@ export class Games {
       s.score++;
       text = `✅ Chain: **${s.score}**. Next letter: **${answer.slice(-1)}**.`;
     } else {
-      if (
-        !(s.category.answers as readonly string[]).includes(answer) ||
-        s.used.has(answer)
-      )
-        return;
-      // Grey and gray are the same cooperative answer.
-      const key = answer === "gray" ? "grey" : answer;
-      if (s.used.has(key)) return;
+      const minecraft = s.category.name === "Minecraft blocks";
+      if (!minecraft && !(s.category.answers as readonly string[]).includes(answer)) return;
+      // Block aliases share a registry identity; grey/gray share a colour identity.
+      const key = minecraft ? minecraftBlockKey(answer) : answer === "gray" ? "grey" : answer;
+      if (!key || s.used.has(key)) return;
       s.used.add(key);
       s.score++;
       text = `✅ **${s.score}** different answers together!`;
