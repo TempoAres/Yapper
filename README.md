@@ -663,7 +663,8 @@ channel (including threads) has one active game, independent of other channels.
 Any server member can start or stop a game and use `/games`. The server must
 allow **Use Application Commands** in the channel for members to see slash
 commands. In bluddington, `#games` (`1222840553121779722`) explicitly allows this
-for `@everyone`. `/games` posts the rules and category list publicly.
+for `@everyone`. `/games` posts a public embed with a section for each game, start commands,
+reaction meanings, category themes, and stopping rules.
 
 - **Word chain:** English dictionary words, at least two letters. Start from
   `apple`; each answer starts with the previous word's last letter. No repeats

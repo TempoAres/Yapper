@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Games, categories } from "../src/services/games/games.js";
+import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import { gameCommand, gamesCommand } from "../src/commands/games.js";
 const create = () =>
   new Games(
@@ -176,7 +177,9 @@ test("ordinary members can stop another member's round and use /games", async ()
     guild: { members: { me: { permissionsIn: () => ({ has: () => true }) } } },
     options: { getSubcommandGroup: () => "higherlower", getSubcommand: () => "stop" },
     async deferReply() {},
-    async editReply(value: { content: string }) { replies.push(value.content); },
+    async editReply(value: { content?: string; embeds?: EmbedBuilder[] }) {
+      replies.push(value.content ?? value.embeds?.map(embed => JSON.stringify(embed.toJSON())).join("\n") ?? "");
+    },
     async reply(value: { content: string }) { replies.push(value.content); },
   } as unknown as Parameters<typeof gameCommand.execute>[0];
   const context = { games: g } as Parameters<typeof gameCommand.execute>[1];
@@ -184,7 +187,7 @@ test("ordinary members can stop another member's round and use /games", async ()
   assert.equal(g.active("a"), undefined);
   assert.match(replies[0]!, /higherlower stopped/);
   await gamesCommand.execute(interaction, context);
-  assert.match(replies[1]!, /Anyone can start or stop a game/);
+  assert.match(replies[1]!, /Anyone can stop it/);
 });
 
 
@@ -212,21 +215,38 @@ test("all twelve category themes are selectable and accept multi-word answers", 
   }
 });
 
-test("/games acknowledges publicly then lists every category within Discord's message limit", async () => {
+test("/games posts one structured public embed with clear game commands and every category", async () => {
   let acknowledged = false;
   await gamesCommand.execute({
     async deferReply(options: unknown) {
       assert.equal(options, undefined);
       acknowledged = true;
     },
-    async editReply(reply: {content: string; allowedMentions: unknown}) {
+    async editReply(reply: {content?: string; embeds: EmbedBuilder[]; allowedMentions: unknown}) {
       assert.equal(acknowledged, true);
-      assert.ok(reply.content.length < 2000);
-      for (const category of categories) assert.ok(reply.content.includes(category.name));
+      assert.equal(reply.content, undefined);
+      assert.equal(reply.embeds.length, 1);
+      const embed = reply.embeds[0]!.toJSON();
+      assert.equal(embed.title, "🎮 Yapper games");
+      assert.ok(embed.color);
+      assert.equal(embed.fields?.length, 6);
+      for (const [index, game] of ["wordchain", "categories", "counting", "higherlower"].entries())
+        assert.ok(embed.fields![index]!.value.includes(`/game ${game} start`));
+      assert.match(embed.fields![1]!.name, /60 seconds/);
+      assert.match(embed.fields![1]!.value, /Wither skeleton/);
+      assert.match(embed.fields![3]!.value, /higherlower leaderboard/);
+      for (const category of categories) assert.ok(embed.fields![4]!.value.includes(category.name));
+      assert.match(embed.fields![5]!.value, /replace `start` with `stop`/);
+      for (const field of embed.fields!) {
+        assert.ok(field.name.length <= 256);
+        assert.ok(field.value.length <= 1024);
+      }
+      assert.ok(reply.embeds[0]!.length <= 6000);
       assert.deepEqual(reply.allowedMentions, {parse: []});
     },
   } as unknown as Parameters<typeof gamesCommand.execute>[0], {} as Parameters<typeof gamesCommand.execute>[1]);
 });
+
 
 test("Minecraft blocks accepts every Java 26.3 registry ID and English name", async () => {
   const { minecraftBlockNames } = await import("../src/services/games/minecraft-blocks-data.js");
@@ -305,7 +325,7 @@ test("all games require reaction permissions before starting", async () => {
       inGuild: () => true,
       channelId: "a",
       channel: { isSendable: () => true, isThread: () => false },
-      guild: { members: { me: { permissionsIn: () => ({ has: (bits: bigint[]) => !bits.includes(64n) }) } } },
+      guild: { members: { me: { permissionsIn: () => ({ has: (bits: bigint[]) => !bits.includes(PermissionFlagsBits.AddReactions) }) } } },
       options: { getSubcommandGroup: () => game, getSubcommand: () => "start" },
       async reply(value: { content: string }) { reply = value.content; },
     } as unknown as Parameters<typeof gameCommand.execute>[0], { games: g } as Parameters<typeof gameCommand.execute>[1]);

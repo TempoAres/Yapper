@@ -1,10 +1,12 @@
 import { formatHigherLowerLeaderboard } from "../services/games/higherlower-wins.js";
 import {
+  EmbedBuilder,
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
 import type { BotCommand } from "./command.js";
+import { yapperColors } from "../presentation/colors.js";
 import { categories, gameNames, type GameName } from "../services/games/games.js";
 
 export const gamesCommand: BotCommand = {
@@ -14,17 +16,40 @@ export const gamesCommand: BotCommand = {
     .setDescription("Discover cooperative channel games."),
   async execute(i) {
     await i.deferReply();
+    const themes = [];
+    for (let index = 0; index < categories.length; index += 3)
+      themes.push(categories.slice(index, index + 3).map(category => category.name).join(" · "));
     await i.editReply({
-      content: [
-        "**Cooperative games**",
-        "**wordchain** — build an English word chain; no repeats or consecutive turns. ✅ accepted, ❌ invalid, 🔁 repeat, ⏳ wait your turn.",
-        `**categories** — find unique answers in 60 seconds. **${categories.length} categories:** ${categories.map((category) => category.name).join(", ")}.`,
-        "**counting** — take turns counting; multiples of five become “yap”. Valid turns get ✅ reactions. ❌ resets the streak; start again at 1.",
-        "**higherlower** — guess a secret number from 1–10,000; ⬆️ means guess higher, ⬇️ means guess lower. A correct guess ends the round. Wins: `/game higherlower leaderboard`.",
-        "Turn feedback uses reactions; only the final result is posted after the start instructions.",
-        "Start: `/game X start` • Stop: `/game X stop`",
-        "One game per channel; different channels play independently. Channel records survive restarts; active rounds end on restart. Anyone can start or stop a game.",
-      ].join("\n"),
+      embeds: [
+        new EmbedBuilder()
+          .setColor(yapperColors.violet)
+          .setTitle("🎮 Yapper games")
+          .setDescription("**Pick a game. Play together. Build a shared score.**\nAnyone can start a round — just choose a command below.")
+          .addFields(
+            {
+              name: "🔗 Word chain",
+              value: "`/game wordchain start`\nStart from **apple**. Each English word begins with the last letter of the previous accepted word. Take turns; no repeats.\n✅ Accepted · ❌ Invalid · 🔁 Already used · ⏳ Wait your turn",
+            },
+            {
+              name: "🎯 Category rush · 60 seconds",
+              value: "`/game categories start`\nFind as many different answers as you can for a random theme. **One answer per message**, including names with spaces like **Wither skeleton**.\n✅ Accepted · 🔁 Already counted",
+            },
+            {
+              name: "🔢 Counting",
+              value: "`/game counting start`\nTake turns counting from **1**. Replace every multiple of **5** with **yap**.\n✅ Correct · ❌ Mistake or consecutive turn — start again at **1**",
+            },
+            {
+              name: "↕️ Higher / lower",
+              value: "`/game higherlower start`\nGuess the secret number from **1–10,000**. Consecutive guesses are welcome.\n⬆️ Guess higher · ⬇️ Guess lower · ✅ Solved!\n**Wins:** `/game higherlower leaderboard`",
+            },
+            { name: `📚 ${categories.length} category themes`, value: themes.join("\n") },
+            {
+              name: "Playing & stopping",
+              value: "**One game per channel.** Anyone can stop it: replace `start` with `stop` in its command.\nTurn feedback uses reactions; the final result gets one message.\nWord chain, counting and higher/lower end after **30 minutes without a valid turn**. Active rounds end when the bot restarts.",
+            },
+          )
+          .setFooter({ text: "Shared scores · Channel records survive restarts" }),
+      ],
       allowedMentions: { parse: [] },
     });
   },
