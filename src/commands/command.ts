@@ -17,6 +17,7 @@ import type { ReminderService } from "../services/reminders/reminder-service.js"
 import type { JournalService } from "../services/journal/journal-service.js";
 import type { GlossaryService } from "../services/glossary/glossary-service.js";
 import type { AfkService } from "../services/afk/afk-service.js";
+import type { AnalysisService } from "../services/analyze/analysis-service.js";
 
 export interface JournalCommandConfig {
   targetUserId: string | undefined;
@@ -25,6 +26,7 @@ export interface JournalCommandConfig {
 }
 
 export interface CommandContext {
+  analysisService?: AnalysisService | undefined;
   games?: Games;
   higherLowerWins?: HigherLowerWins;
   memberXpService: MemberXpService;

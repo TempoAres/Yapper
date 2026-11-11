@@ -1,5 +1,6 @@
 import { gamesCommand, gameCommand } from "./games.js";
 import { scoreCommand } from "./score.js";
+import { analyzeCommand } from "./analyze.js";
 import type { BotCommand } from "./command.js";
 import { commandGuideCommand } from "./command-guide.js";
 import { emojiCommand } from "./emojis.js";
@@ -24,6 +25,7 @@ import { winsCommand } from "./wins.js";
 import { xpCommand } from "./xp.js";
 
 export const commands: readonly BotCommand[] = [
+  analyzeCommand,
   pingCommand,
   gamesCommand,
   gameCommand,

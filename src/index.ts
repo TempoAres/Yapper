@@ -37,6 +37,8 @@ import { ReminderRunner } from "./services/reminders/reminder-runner.js";
 import { LeaderboardAnnouncementRunner } from "./services/leaderboards/leaderboard-announcement-runner.js";
 import { JournalRunner } from "./services/journal/journal-runner.js";
 import { OpenAiJournalSummarizer } from "./services/journal/journal-summarizer.js";
+import { DiscordAnalysisService } from "./services/analyze/analysis-service.js";
+import { OpenAiAnalysisSummarizer } from "./services/analyze/summarizer.js";
 import { startHealthServer, stopHealthServer } from "./health/health-server.js";
 
 async function main(): Promise<void> {
@@ -100,6 +102,11 @@ async function main(): Promise<void> {
         journalService,
         glossaryService,
         afkService,
+        analysisService: journalConfig.openAiApiKey
+          ? new DiscordAnalysisService(new OpenAiAnalysisSummarizer(
+              journalConfig.openAiApiKey, journalConfig.openAiModel,
+            ))
+          : undefined,
         journalConfig: {
           targetUserId: journalConfig.targetUserId,
           summarizationConfigured: Boolean(journalConfig.openAiApiKey),

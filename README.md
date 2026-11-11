@@ -47,6 +47,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - An administrator-only `/journal` workflow that records one explicitly
   configured user's messages, sends short private daily OpenAI retros plus a
   longer weekly embed, and deletes each temporary transcript afterward.
+- Administrator-only `/analyze user:@member` reviews a current member's last
+  30 days of messaging, with reply context, across readable channels/threads.
 - Private `/recent xp [user]` diagnostics with timestamps, sources, channels,
   amounts, and message jump links without storing message content.
 - Audited `/xp admin view|add|remove|set` controls protected by Manage Server.
@@ -355,6 +357,56 @@ Speaking again after the 30-second goodbye grace period clears the status and
 restores the original nickname, unless someone changed that nickname while the
 member was away. The welcome-back confirmation deletes itself after 30 seconds
 to keep active channels tidy.
+
+## Member messaging overview
+
+Server administrators can run `/analyze user:@member` for a current human
+member of that server. Runtime permission and membership checks also apply if
+Discord command permissions are overridden. The bot scans the rolling last
+30 days (start inclusive, command processing start exclusive) across channels
+it can read, including voice text chat, active threads, forums, and archived
+public/private threads available to the bot. Private archives include joined
+threads, or all readable private archives when the bot has Manage Threads.
+It never joins threads or changes permissions. Known inaccessible channels,
+failed scans, failed thread listings, and missing context are reported.
+Deleted messages and undiscoverable/inaccessible threads cannot be recovered.
+
+Each target message is paired with its direct other-person reply reference,
+when available, or the nearest preceding human message from another person
+in the same channel. Context can precede the 30-day window. Self replies,
+deleted references, and inaccessible references fall back to preceding context.
+The other person's words are explicitly context only, never evidence of the
+target's behavior. Files, images, embeds, and linked pages are not fetched or
+analyzed; attachment-only messages carry an explicit placeholder.
+
+The report appears publicly in the channel where `/analyze` ran, with mentions
+disabled. It describes observable communication style, recurring tone, and
+tentative reader impressions, with uncertainty and counterexamples. It does
+not establish a person's personality, diagnose them, or guarantee an unbiased
+assessment. The model is instructed to omit private source details and use
+anonymous behavioral paraphrases because readable source channels may be
+private. The command shares target messages and paired context with OpenAI;
+configure and communicate this use appropriately for your server.
+
+Analysis reuses `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`) and `OPENAI_MODEL`
+from the existing journal configuration, independently of `JOURNAL_USER_ID`.
+There is no new database storage or continuous collection. Transcripts are held
+in process memory for the job, are not logged or written to the database, and
+OpenAI requests use `store: false` (this does not override the provider's data
+retention policies). Large histories are summarized in chunks, recursively
+combined, and may require many paid API requests; every collected target
+message reaches the model, with compression loss possible in intermediate
+notes. Empty histories do not call OpenAI. One job runs per server at a time.
+Jobs run in memory and are lost on restart; long jobs post with the bot's
+channel API so delivery does not depend on Discord's 15-minute interaction
+token. The requester must still be an administrator and the target a server
+member when the report is ready.
+
+Enable Message Content Intent, grant View Channel and Read Message History
+in source channels, and grant Send Messages (Send Messages in Threads for
+thread destinations) plus Embed Links where reports should appear. Deploy
+the updated slash-command definitions with `pnpm deploy:commands` and restart
+the rebuilt bot. No migration is required.
 
 ## Private daily journal
 
