@@ -353,6 +353,13 @@ disabled.
 Use `?afk` or `?afk reason` to mark yourself away. Yapper adds `[AFK]` to the
 member nickname when its role hierarchy permits it and shows the saved reason
 when another member mentions them. AFK notices do not generate a second ping.
+Reasons support Unicode and custom emojis, including animated emojis from other
+servers. Select the custom emoji in Discord when writing the command; `:name:`
+also works for emojis from servers Yapper can see (the current server wins name
+collisions). Yapper reuses application-owned copies of custom emojis so they can
+render even when it is not in the source server. Discord allows up to 2,000
+application emojis; unavailable images or exhausted slots fall back to the
+original emoji markup without preventing AFK status from being saved.
 Speaking again after the 30-second goodbye grace period clears the status and
 restores the original nickname, unless someone changed that nickname while the
 member was away. The welcome-back confirmation deletes itself after 30 seconds

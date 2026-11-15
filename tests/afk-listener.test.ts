@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MessageType, type GuildMember, type Message } from "discord.js";
+import { Collection, MessageType, type Client, type GuildMember, type Message } from "discord.js";
+
+import { AfkEmojiResolver, formatAfkReason } from "../src/bot/afk-emojis.js";
 
 import {
   AFK_WELCOME_DELETE_MILLISECONDS,
@@ -133,6 +135,43 @@ function fakeMessage(input: {
 }
 
 describe("AFK listener", () => {
+  it("renders resolved emojis in confirmations and notices while saving the original reason", async () => {
+    const service = new FakeAfkService();
+    const sent: Array<unknown> = [];
+    const original = "Sleeping <:bedge:123456789012345678>";
+    const resolved = "Sleeping <:afk_123456789012345678:223456789012345678>";
+    const resolver = {
+      resolve: async (reason: string, guildId: string) => {
+        assert.equal(reason, original);
+        assert.equal(guildId, "guild-1");
+        return resolved;
+      },
+    };
+    const now = new Date("2026-09-29T12:00:00.000Z");
+    await handleAfkMessage(fakeMessage({
+      content: `?afk ${original}`, createdAt: now,
+      member: fakeMember({ nicknameChanges: [] }), sent,
+    }), service, resolver);
+    assert.equal((await service.getAfk("guild-1", "user-1"))?.reason, original);
+    assert.deepEqual(sent[0], {
+      content: `You're now AFK: **${resolved}**`, allowedMentions: { parse: [] },
+    });
+
+    await service.setAfk({
+      guildId: "guild-1", userId: "user-2", reason: original,
+      setAt: now, originalNickname: null, appliedNickname: null,
+    });
+    await handleAfkMessage(fakeMessage({
+      content: "<@user-2>", createdAt: now,
+      member: fakeMember({ nicknameChanges: [] }), sent,
+      mentionedUserIds: ["user-2"],
+    }), service, resolver);
+    assert.deepEqual(sent.at(-1), {
+      content: `<@user-2> is AFK: **${resolved}** • since <t:${now.getTime() / 1_000}:R>`,
+      allowedMentions: { parse: [] },
+    });
+  });
+
   it("recognizes only the ?afk prefix and defaults an empty reason", () => {
     assert.equal(isAfkCommand("?AFK lunch"), true);
     assert.equal(isAfkCommand("?afksoon"), false);
@@ -311,5 +350,106 @@ describe("AFK listener", () => {
     );
 
     assert.deepEqual(nicknameChanges, []);
+  });
+});
+
+function fakeEmoji(id: string, name: string, animated = false) {
+  return { id, name, toString: () => `<${animated ? "a" : ""}:${name}:${id}>` };
+}
+
+function emojiClient(options: { existing?: ReturnType<typeof fakeEmoji>[]; fail?: boolean } = {}) {
+  const cache = new Collection((options.existing ?? []).map((emoji) => [emoji.id, emoji]));
+  const uploads: Array<{ name: string; attachment: string }> = [];
+  let fetches = 0;
+  const client = {
+    guilds: { cache: new Collection() },
+    emojis: { cache: new Collection<string, ReturnType<typeof fakeEmoji>>() },
+    application: { emojis: {
+      cache,
+      fetch: async () => { fetches++; return cache; },
+      create: async (input: { name: string; attachment: string }) => {
+        uploads.push(input);
+        if (options.fail) throw new Error("Upload unavailable");
+        const emoji = fakeEmoji(`22345678901234567${uploads.length}`, input.name, input.attachment.includes(".gif"));
+        cache.set(emoji.id, emoji);
+        return emoji;
+      },
+    } },
+  };
+  return { client: client as unknown as Client, uploads, fetches: () => fetches };
+}
+
+describe("AFK emojis", () => {
+  it("keeps Unicode and custom markup intact while escaping surrounding Markdown", () => {
+    assert.equal(
+      formatAfkReason("**Sleeping** 😴 <:bed__ge:123456789012345678> <a:zzz:123456789012345679>"),
+      "\\*\\*Sleeping\\*\\* 😴 <:bed__ge:123456789012345678> <a:zzz:123456789012345679>",
+    );
+  });
+
+  it("does not call Discord for plain text, Unicode, or an unknown shorthand", async () => {
+    const fake = emojiClient();
+    assert.equal(await new AfkEmojiResolver(fake.client).resolve("Sleeping 😴 :unknown:", "guild-1"), "Sleeping 😴 :unknown:");
+    assert.equal(fake.fetches(), 0);
+  });
+
+  it("bounds long expanded reasons without breaking emoji markup or Discord's message limit", () => {
+    const emoji = "<:afk_123456789012345678:223456789012345678>";
+    const formatted = formatAfkReason(emoji.repeat(75));
+    assert.ok(formatted.length <= 1_500);
+    assert.ok(formatted.endsWith(`${emoji}…`));
+    const setAt = new Date("2026-09-29T12:00:00.000Z");
+    const notice = createAfkMentionNotice([{
+      guildId: "guild-1", userId: "user-2", reason: emoji.repeat(75),
+      setAt, clearAfter: setAt, originalNickname: null, appliedNickname: null,
+    }]);
+    assert.ok(String(notice?.content).length < 2_000);
+    assert.ok(String(notice?.content).includes(formatted));
+  });
+
+  it("imports static and animated emojis without membership in their source servers", async () => {
+    const fake = emojiClient();
+    const resolver = new AfkEmojiResolver(fake.client);
+    assert.equal(await resolver.resolve("Sleeping <:bedge:123456789012345678> <a:zzz:123456789012345679>", "guild-1"),
+      "Sleeping <:afk_123456789012345678:223456789012345671> <a:afk_123456789012345679:223456789012345672>");
+    assert.deepEqual(fake.uploads, [
+      { name: "afk_123456789012345678", attachment: "https://cdn.discordapp.com/emojis/123456789012345678.png?size=128" },
+      { name: "afk_123456789012345679", attachment: "https://cdn.discordapp.com/emojis/123456789012345679.gif?size=128" },
+    ]);
+    assert.equal(fake.fetches(), 1);
+  });
+
+  it("reuses copies across restarts and concurrent requests, including already-resolved markup", async () => {
+    const fake = emojiClient();
+    const resolver = new AfkEmojiResolver(fake.client);
+    const original = "<:bedge:123456789012345678>";
+    const [first, second] = await Promise.all([
+      resolver.resolve(original, "guild-1"), resolver.resolve(original, "guild-2"),
+    ]);
+    assert.equal(first, second);
+    assert.equal(await new AfkEmojiResolver(fake.client).resolve(original, "guild-1"), first);
+    assert.equal(await resolver.resolve(first, "guild-1"), first);
+    assert.equal(fake.uploads.length, 1);
+  });
+
+  it("resolves a known shorthand, preferring the current server over another server", async () => {
+    const fake = emojiClient();
+    fake.client.emojis.cache.set("123456789012345679", fakeEmoji("123456789012345679", "bedge") as never);
+    fake.client.guilds.cache.set("guild-1", {
+      emojis: { cache: new Collection([["123456789012345678", fakeEmoji("123456789012345678", "bedge")]]) },
+    } as never);
+    const resolver = new AfkEmojiResolver(fake.client);
+    await resolver.resolve("Sleeping :bedge:", "guild-1");
+    await resolver.resolve("Sleeping :bedge:", "guild-2");
+    assert.deepEqual(fake.uploads.map((upload) => upload.name), ["afk_123456789012345678", "afk_123456789012345679"]);
+  });
+
+  it("keeps AFK usable and avoids repeated uploads when an image is unavailable or slots are exhausted", async () => {
+    const fake = emojiClient({ fail: true });
+    const resolver = new AfkEmojiResolver(fake.client);
+    const reason = "Sleeping <:bedge:123456789012345678>";
+    assert.equal(await resolver.resolve(reason, "guild-1"), reason);
+    assert.equal(await resolver.resolve(reason, "guild-1"), reason);
+    assert.equal(fake.uploads.length, 1);
   });
 });

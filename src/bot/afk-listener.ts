@@ -2,11 +2,12 @@ import {
   Client,
   Events,
   MessageType,
-  escapeMarkdown,
   type GuildMember,
   type Message,
   type MessageCreateOptions,
 } from "discord.js";
+
+import { AfkEmojiResolver, formatAfkReason } from "./afk-emojis.js";
 
 import {
   normalizeAfkReason,
@@ -69,7 +70,7 @@ function isSupportedUserMessage(message: Message): message is Message<true> {
 
 function afkConfirmation(reason: string): MessageCreateOptions {
   return {
-    content: `You're now AFK: **${escapeMarkdown(reason)}**`,
+    content: `You're now AFK: **${formatAfkReason(reason)}**`,
     allowedMentions: { parse: [] },
   };
 }
@@ -108,7 +109,7 @@ export function createAfkMentionNotice(
 
   for (const status of statuses) {
     const unixTime = Math.floor(status.setAt.getTime() / 1_000);
-    const line = `<@${status.userId}> is AFK: **${escapeMarkdown(status.reason)}** • since <t:${unixTime}:R>`;
+    const line = `<@${status.userId}> is AFK: **${formatAfkReason(status.reason)}** • since <t:${unixTime}:R>`;
     const remaining = statuses.length - lines.length;
     const overflow = remaining > 1 ? `\n…and ${remaining - 1} more.` : "";
 
@@ -202,6 +203,7 @@ async function restoreAfkNickname(
 export async function handleAfkMessage(
   message: Message,
   afkService: AfkService,
+  emojiResolver?: Pick<AfkEmojiResolver, "resolve">,
 ): Promise<boolean> {
   if (!isSupportedUserMessage(message)) {
     return false;
@@ -257,7 +259,10 @@ export async function handleAfkMessage(
       throw error;
     }
 
-    await message.channel.send(afkConfirmation(command.reason));
+    const reason = emojiResolver
+      ? await emojiResolver.resolve(command.reason, message.guildId)
+      : command.reason;
+    await message.channel.send(afkConfirmation(reason));
     return true;
   }
 
@@ -282,7 +287,13 @@ export async function handleAfkMessage(
     message.guildId,
     mentionedUserIds,
   );
-  const notice = createAfkMentionNotice(statuses);
+  const displayStatuses = emojiResolver
+    ? await Promise.all(statuses.map(async (status) => ({
+      ...status,
+      reason: await emojiResolver.resolve(status.reason, message.guildId),
+    })))
+    : statuses;
+  const notice = createAfkMentionNotice(displayStatuses);
 
   if (notice) {
     await message.channel.send(notice);
@@ -295,8 +306,9 @@ export function registerAfkListener(
   client: Client,
   afkService: AfkService,
 ): void {
+  const emojiResolver = new AfkEmojiResolver(client);
   client.on(Events.MessageCreate, (message) => {
-    void handleAfkMessage(message, afkService).catch((error: unknown) => {
+    void handleAfkMessage(message, afkService, emojiResolver).catch((error: unknown) => {
       console.error(
         `Could not process AFK state for guild ${message.guildId}, message ${message.id}:`,
         error,
