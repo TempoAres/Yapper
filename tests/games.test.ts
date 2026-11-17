@@ -51,7 +51,7 @@ test("counting replaces multiples of five and resets wrong numbers and consecuti
   g.start("a", "counting", "u", 0);
   for (let n = 1; n <= 10; n++)
     assert.equal(
-      g.message("a", String(n % 2), n % 5 ? String(n) : "yap", n)?.score,
+      g.message("a", String(n % 2), n % 10 === 0 ? `${n - 1}+1` : n % 5 ? String(n) : "yap", n)?.score,
       n,
     );
   assert.equal(g.message("a", "u", "ordinary chat", 11), undefined);
@@ -59,6 +59,89 @@ test("counting replaces multiples of five and resets wrong numbers and consecuti
   assert.equal(g.message("a", "u", "1", 13)?.score, 1);
   assert.equal(g.message("a", "u", "2", 14)?.reaction, "❌");
   assert.equal(g.message("a", "v", "1", 15)?.score, 1);
+});
+test("counting accepts calculations at any number, including yap turns", () => {
+  const g = create();
+  g.start("a", "counting", "owner", 0);
+  for (const [index, expression] of ["pi/pi", "2", "1000-997", "(2+6)/2", "6. - 1", "3*2"].entries()) {
+    const result = g.message("a", String(index % 2), expression, index + 1)!;
+    assert.equal(result.reaction, "✅", expression);
+    assert.equal(result.score, index + 1);
+  }
+  assert.equal(g.message("a", "1", "8-1", 10)?.reaction, "❌", "consecutive calculation resets");
+  assert.equal(g.message("a", "0", "2-1", 11)?.score, 1);
+});
+
+test("counting requires calculations at each configured multiple and after resets", () => {
+  for (const invalid of ["3", "+3", "(3)", "-(-3)", "2+2", "1/0", "3+", "9^999", "1".repeat(201) + "+0"]) {
+    const g = create();
+    g.start("a", "counting", "owner", 0, undefined, 3);
+    g.message("a", "u", "1", 1);
+    g.message("a", "v", "2", 2);
+    assert.equal(g.message("a", "u", invalid, 3)?.reaction, "❌", invalid);
+    assert.equal(g.message("a", "u", "1", 4)?.score, 1);
+    assert.equal(g.message("a", "v", "2", 5)?.score, 2);
+    assert.equal(g.message("a", "u", "1000-997", 6)?.score, 3);
+    assert.equal(g.message("a", "v", "4", 7)?.score, 4);
+    assert.equal(g.message("a", "u", "yap", 8)?.score, 5);
+    assert.equal(g.message("a", "v", "6", 9)?.reaction, "❌");
+  }
+});
+
+test("required calculations override yap, and intervals are isolated per round", () => {
+  const g = create();
+  g.start("a", "counting", "owner", 0, undefined, 5);
+  g.start("b", "counting", "owner", 0, undefined, 1);
+  assert.equal(g.message("b", "u", "1", 1)?.reaction, "❌");
+  assert.equal(g.message("b", "u", "2-1", 2)?.score, 1);
+  for (let n = 1; n < 5; n++) g.message("a", String(n % 2), String(n), n);
+  assert.equal(g.message("a", "1", "yap", 5)?.reaction, "❌");
+  for (let n = 1; n <= 10; n++)
+    assert.equal(g.message("a", String(n % 2), n % 5 ? String(n) : `${n}+0`, n + 5)?.score, n);
+  g.stop("b", "counting");
+  assert.match(g.start("b", "counting", "owner", 20), /Every \*\*10\*\*/);
+  assert.equal(g.message("b", "u", "1", 21)?.score, 1);
+});
+
+test("counting ignores conversation and rejects invalid interval configuration", () => {
+  const g = create();
+  for (const interval of [0, -1, 1.5, Infinity, NaN]) {
+    assert.match(g.start("a", "counting", "owner", 0, undefined, interval), /positive whole number/);
+    assert.equal(g.active("a"), undefined);
+  }
+  g.start("a", "counting", "owner", 0);
+  g.message("a", "u", "1", 1);
+  for (const text of ["hello", "I think 1+1", "process.exit()", "<@123>", "?calc 1+1"])
+    assert.equal(g.message("a", "v", text, 2), undefined);
+  assert.equal(g.message("a", "v", "1+1", 3)?.score, 2);
+});
+
+test("counting start exposes and applies the calculation interval option", async () => {
+  const data = gameCommand.data.toJSON();
+  const group = data.options!.find(option => option.name === "counting")!;
+  assert.ok("options" in group);
+  const start = group.options!.find(option => option.name === "start")!;
+  assert.ok("options" in start);
+  assert.equal(start.options![0]!.name, "calculation-every");
+  for (const interval of [null, 1, 3]) {
+    const g = create();
+    let reply = "";
+    await gameCommand.execute({
+      inGuild: () => true,
+      channelId: "a",
+      user: { id: "owner" },
+      channel: { isSendable: () => true, isThread: () => false },
+      guild: { members: { me: { permissionsIn: () => ({ has: () => true }) } } },
+      options: {
+        getSubcommandGroup: () => "counting", getSubcommand: () => "start",
+        getInteger: (name: string) => { assert.equal(name, "calculation-every"); return interval; },
+      },
+      async deferReply() {},
+      async editReply(value: { content: string }) { reply = value.content; },
+    } as unknown as Parameters<typeof gameCommand.execute>[0], { games: g } as Parameters<typeof gameCommand.execute>[1]);
+    assert.ok(reply.includes(`Every **${interval ?? 10}** numbers`));
+    assert.equal(g.message("a", "u", "1")?.reaction, interval === 1 ? "❌" : "✅");
+  }
 });
 test("category rush scores unique curated answers and expires exactly at deadline", () => {
   const g = create();

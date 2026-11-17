@@ -1,3 +1,4 @@
+import { CalculatorExpressionError, calculateExpression } from "../calculator.js";
 import { expandedCategoryAnswers, categoryAnswerKey } from "./category-data.js";
 import {
   minecraftBlockAnswers,
@@ -234,6 +235,7 @@ interface Session {
   category: (typeof categories)[number];
   target: number;
   guesses: number;
+  calculationEvery: number;
   expiresAt: number;
 }
 export interface GameResult {
@@ -296,10 +298,13 @@ export class Games {
     starter: string,
     now = Date.now(),
     categoryName?: string,
+    calculationEvery = 10,
   ): string {
     const active = this.sessions.get(channel);
     if (active)
       return `This channel is already playing ${active.game}. Stop it with /game ${active.game} stop first.`;
+    if (game === "counting" && (!Number.isSafeInteger(calculationEvery) || calculationEvery < 1))
+      return "Calculation interval must be a positive whole number.";
     const category = game === "categories" ? this.pickCategory(channel, categoryName) : categories[0];
     if (!category) return "Unknown category. Choose one from `/game categories start category:`.";
     this.sessions.set(channel, {
@@ -313,6 +318,7 @@ export class Games {
       category,
       target: game === "higherlower" ? Math.floor(this.random() * 10_000) + 1 : 0,
       guesses: 0,
+      calculationEvery,
       expiresAt: now + (game === "categories" ? 60_000 : 30 * 60_000),
     });
     return game === "higherlower"
@@ -320,7 +326,7 @@ export class Games {
       : game === "wordchain"
       ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. ✅ accepted, ❌ invalid, 🔁 already used, ⏳ wait for another player. The next letter is the last letter of the accepted word. Build a shared chain! Ends after 30 minutes without a valid turn."
       : game === "counting"
-        ? "Counting started! Send **1**. Take turns counting upward; replace every multiple of 5 with **yap**. ✅ means a valid turn; ❌ means a wrong number or consecutive turn and resets the streak; start again at **1**. Ordinary chat is ignored. Ends after 30 minutes without a valid turn."
+        ? `Counting started! Send **${calculationEvery === 1 ? "2 - 1" : "1"}**. Take turns counting upward. Calculations are always allowed: **1000-997** counts as **3**. Every **${calculationEvery}** numbers, a calculation is required (at **${calculationEvery}**, **${calculationEvery * 2}**, etc.). Use +, -, *, /, ^ and parentheses. A signed or parenthesized number alone is not a calculation. On other turns, replace multiples of 5 with **yap** or use a calculation. ✅ means a valid turn; ❌ means an incorrect answer, missing required calculation, or consecutive turn and resets the streak; start again at **1**. Ordinary chat is ignored. Ends after 30 minutes without a valid turn.`
         : `Category rush! **${category.name}** — find as many different answers together as possible in **60 seconds**. One answer per message. ✅ accepted, 🔁 already counted; repeats do not add points. ${
             category.name === "Minecraft blocks"
               ? `All **${minecraftBlockCount.toLocaleString("en-US")} blocks** from **Minecraft Java ${minecraftVersion}**. Type **Blue Ice** or **Ice** as separate messages — both count as different answers. **Smooth Stone** works too. Spaces or underscores are accepted, and capitalization does not matter. Blue Ice and blue_ice are the same answer.`
@@ -392,10 +398,24 @@ export class Games {
         score: 0,
       };
     } else if (s.game === "counting") {
-      if (!/^\d+$/.test(answer) && answer !== "yap") return;
+      // Restrict candidates to arithmetic; ordinary conversation stays ignored.
+      const expression = answer.normalize("NFKC");
+      if (answer !== "yap" && (!/(?:[0-9]|pi)/.test(expression) ||
+          !/^[\d\s.+\-*/^()]+$/.test(expression.replace(/pi/g, "")))) return;
       const next = s.score + 1;
-      const expected = next % 5 === 0 ? "yap" : String(next);
-      if (answer !== expected || user === s.lastUser) {
+      const required = next % s.calculationEvery === 0;
+      // A binary operator is needed: +3, -(-3), and (3) alone do not qualify.
+      const calculation = /(?:\d\.?|\)|pi)\s*[+\-*/^]/.test(expression);
+      let value: number | undefined;
+      try {
+        if (answer !== "yap") value = calculateExpression(expression);
+      } catch (error) {
+        if (!(error instanceof CalculatorExpressionError)) throw error;
+      }
+      const correct = calculation
+        ? Number.isSafeInteger(value) && value === next
+        : !required && (next % 5 === 0 ? answer === "yap" : /^\d+$/.test(answer) && value === next);
+      if (!correct || user === s.lastUser) {
         const score = s.score;
         s.score = 0;
         s.lastUser = undefined;

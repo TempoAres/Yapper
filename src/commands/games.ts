@@ -37,7 +37,7 @@ export const gamesCommand: BotCommand = {
             },
             {
               name: "🔢 Counting",
-              value: "`/game counting start`\nTake turns counting from **1**. Replace every multiple of **5** with **yap**.\n✅ Correct · ❌ Mistake or consecutive turn — start again at **1**",
+              value: "`/game counting start`\nTake turns counting from **1**. Calculations like **1000-997** for **3** are always allowed. Every **10th** number requires one; set `calculation-every:` to choose X. On other turns, multiples of **5** need **yap** or a calculation.\n✅ Correct · ❌ Mistake or consecutive turn — start again at **1**",
             },
             {
               name: "↕️ Higher / lower",
@@ -101,7 +101,13 @@ export const gameCommand: BotCommand = {
         .setName("counting")
         .setDescription("Counting with twists")
         .addSubcommand((s) =>
-          s.setName("start").setDescription("Start counting"),
+          s.setName("start").setDescription("Start counting")
+            .addIntegerOption(option => option
+              .setName("calculation-every")
+              .setDescription("Require a calculation every X numbers (default: 10)")
+              .setMinValue(1)
+              .setMaxValue(1_000_000)
+              .setRequired(false)),
         )
         .addSubcommand((s) =>
           s.setName("stop").setDescription("Stop counting"),
@@ -179,7 +185,7 @@ export const gameCommand: BotCommand = {
     }
     await i.deferReply();
     const text = starting
-      ? games.start(i.channelId, game, i.user.id, Date.now(), game === "categories" ? i.options.getString("category") ?? undefined : undefined)
+      ? games.start(i.channelId, game, i.user.id, Date.now(), game === "categories" ? i.options.getString("category") ?? undefined : undefined, game === "counting" ? i.options.getInteger("calculation-every") ?? undefined : undefined)
       : games.stop(i.channelId, game);
     await i.editReply({
       content:

@@ -765,7 +765,15 @@ reaction meanings, category themes, and stopping rules.
   examples for the chosen category. Block data is bundled with the release;
   future Minecraft updates require refreshing it from the pinned source registry
   and language assets documented in `minecraft-blocks-data.ts`.
-- **Counting:** take turns starting at 1. Every multiple of five becomes `yap`.
+- **Counting:** take turns starting at 1. Calculations are always allowed:
+  `1000-997` counts as 3. Every X-th number requires a calculation; X defaults to
+  10 and can be set with `/game counting start calculation-every:3`.
+  The requirement applies at X, 2X, 3X, etc., and starts over after a reset.
+  On other turns, multiples of five accept `yap` or a calculation.
+  On required turns, even multiples of five need a calculation, not `yap`.
+  Supports `+`, `-`, `*`, `/`, `^`, parentheses, decimals, and `pi` (200 characters
+  maximum). Results must equal the next whole number. A bare signed or
+  parenthesized number does not satisfy the calculation requirement.
   Valid turns get a ✅ reaction, including new records, without a confirmation
   message. Records still persist. Wrong numbers or consecutive turns reset the
   streak with ❌; start again at 1; ordinary chat is ignored. The final result reports the
