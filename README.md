@@ -773,8 +773,10 @@ reaction meanings, category themes, and stopping rules.
   and Read Message History.
 - **Higher/lower:** guess a random secret whole number from 1 to 10,000 inclusive.
   The bot reacts ⬆️ when the secret is higher and ⬇️ when it is lower. Anyone
-  can guess repeatedly; a correct guess gets ✅ and ends the round with the
-  shared guess count. Other chat and out-of-range guesses are ignored. Requires
+  can play, but consecutive guesses by the same player are rejected with ⏳.
+  Wait for another player’s valid guess before guessing again. Rejected guesses
+  do not count or extend the inactivity timer. A correct guess gets ✅ and ends
+  the round with the shared guess count. Other chat and out-of-range guesses are ignored. Requires
   Add Reactions and Read Message History. `/game higherlower leaderboard` shows
   the server's total completed games and the top ten channels by new wins.
   bluddington starts with the operator-supplied **922 historical wins** from bot

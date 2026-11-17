@@ -104,15 +104,45 @@ test("higher/lower reacts toward the secret, ignores invalid guesses, and ends o
   for (const invalid of ["ordinary chat", "0", "10001", "-1", "1.5", "1e3", "9999999999999999"])
     assert.equal(g.message("a", "u", invalid, 1), undefined);
   assert.equal(g.message("a", "u", "1", 2)?.reaction, "⬆️");
-  assert.equal(g.message("a", "u", "10000", 3)?.reaction, "⬇️");
+  assert.equal(g.message("a", "v", "10000", 3)?.reaction, "⬇️");
   assert.equal(g.message("a", "u", "4998", 4)?.text, "");
-  const won = g.message("a", "u", " 5000 ", 5)!;
+  const won = g.message("a", "v", " 5000 ", 5)!;
   assert.equal(won.reaction, "✅");
   assert.equal(won.completed, true);
   assert.match(won.text, /5000.*4.*guesses/);
   assert.equal(won.score, 0);
   assert.equal(g.active("a"), undefined);
   assert.equal(g.message("a", "u", "5000", 6), undefined);
+});
+
+test("higher/lower rejects consecutive guesses without counting them or revealing the target", () => {
+  const g = new Games(new Set(), () => 0.4999);
+  g.start("a", "higherlower", "owner", 0);
+  assert.equal(g.message("a", "u", "1", 1)?.reaction, "⬆️");
+  const rejected = g.message("a", "u", "5000", 2)!;
+  assert.equal(rejected.reaction, "⏳");
+  assert.equal(rejected.text, "");
+  assert.equal(rejected.completed, undefined);
+  assert.equal(g.active("a"), "higherlower");
+  assert.equal(g.message("a", "v", "hello", 3), undefined);
+  assert.equal(g.message("a", "v", "10001", 4), undefined);
+  assert.equal(g.message("a", "u", "10000", 5)?.reaction, "⏳");
+  assert.equal(g.message("a", "v", "10000", 6)?.reaction, "⬇️");
+  const won = g.message("a", "u", "5000", 7)!;
+  assert.equal(won.completed, true);
+  assert.match(won.text, /3.*guesses/);
+  g.start("a", "higherlower", "owner", 8);
+  assert.equal(g.message("a", "u", "1", 9)?.reaction, "⬆️");
+  g.start("b", "higherlower", "owner", 8);
+  assert.equal(g.message("b", "u", "1", 9)?.reaction, "⬆️");
+});
+
+test("higher/lower rejected consecutive guesses do not extend expiry", () => {
+  const g = new Games(new Set(), () => 0.4999);
+  g.start("a", "higherlower", "owner", 0);
+  g.message("a", "u", "1", 1000);
+  assert.equal(g.message("a", "u", "5000", 1_800_999)?.reaction, "⏳");
+  assert.match(g.expire("a", 1_801_000)!.text, /expired/);
 });
 
 test("higher/lower includes both endpoints and expires after valid-guess inactivity", () => {

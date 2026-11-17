@@ -316,7 +316,7 @@ export class Games {
       expiresAt: now + (game === "categories" ? 60_000 : 30 * 60_000),
     });
     return game === "higherlower"
-      ? "Higher/lower started! Guess the secret whole number from **1 to 10,000**. Anyone can guess, including consecutive turns. I react ⬆️ if the secret number is higher and ⬇️ if it is lower. A correct guess ends the round. Ends after 30 minutes without a valid guess."
+      ? "Higher/lower started! Guess the secret whole number from **1 to 10,000**. Take turns guessing; wait for another player before guessing again. ⏳ means wait for another player. I react ⬆️ if the secret number is higher and ⬇️ if it is lower. A correct guess ends the round. Ends after 30 minutes without a valid guess."
       : game === "wordchain"
       ? "Word chain started! First word: **apple**. Send one English word starting with **e**. No repeats or consecutive turns. ✅ accepted, ❌ invalid, 🔁 already used, ⏳ wait for another player. The next letter is the last letter of the accepted word. Build a shared chain! Ends after 30 minutes without a valid turn."
       : game === "counting"
@@ -372,6 +372,8 @@ export class Games {
       if (!/^\d{1,5}$/.test(answer)) return;
       const guess = Number(answer);
       if (guess < 1 || guess > 10_000) return;
+      if (s.lastUser === user) return feedback("⏳");
+      s.lastUser = user;
       s.guesses++;
       s.expiresAt = now + 30 * 60_000;
       if (guess !== s.target)

@@ -41,7 +41,7 @@ export const gamesCommand: BotCommand = {
             },
             {
               name: "↕️ Higher / lower",
-              value: "`/game higherlower start`\nGuess the secret number from **1–10,000**. Consecutive guesses are welcome.\n⬆️ Guess higher · ⬇️ Guess lower · ✅ Solved!\n**Wins:** `/game higherlower leaderboard`",
+              value: "`/game higherlower start`\nGuess the secret number from **1–10,000**. Take turns; no consecutive guesses. ⏳ Wait for another player.\n⬆️ Guess higher · ⬇️ Guess lower · ✅ Solved!\n**Wins:** `/game higherlower leaderboard`",
             },
             { name: `📚 ${categories.length} category themes`, value: themes.join("\n") },
             {

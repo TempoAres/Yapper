@@ -126,10 +126,10 @@ test("higher/lower listener reacts to guesses, persists one win and skips score 
     const sent: string[] = [];
     let done!: () => void;
     const finished = new Promise<void>((resolve) => { done = resolve; });
-    for (const content of ["hi", "0", "1", "10000", "5000", "5000"])
+    for (const [author, content] of [["one", "hi"], ["one", "0"], ["one", "1"], ["one", "5000"], ["two", "10000"], ["two", "5000"], ["one", "5000"], ["one", "5000"]])
       (client as unknown as EventEmitter).emit(Events.MessageCreate, {
         inGuild: () => true,
-        author: { id: "one", bot: false },
+        author: { id: author, bot: false },
         webhookId: null,
         channelId: "a",
         guildId: "server",
@@ -145,7 +145,7 @@ test("higher/lower listener reacts to guesses, persists one win and skips score 
       });
     await finished;
     await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.deepEqual(reactions, ["⬆️", "⬇️", "✅"]);
+    assert.deepEqual(reactions, ["⬆️", "⏳", "⬇️", "⏳", "✅"]);
     assert.equal(sent.length, 1);
     assert.match(sent[0]!, /5000.*3.*guesses/);
     assert.match(sent[0]!, /Total completed games: \*\*923/);
