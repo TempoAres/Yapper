@@ -274,11 +274,15 @@ export class PostgresReactionService implements ReactionService {
 
     const column =
       input.metric === "received" ? "reactions_received" : "reactions_given";
+    const eligibleTotals = `
+      FROM member_reaction_totals
+      INNER JOIN guild_members USING (guild_id, user_id)
+      WHERE guild_id = $1 AND ${column} > 0 AND guild_members.new_bot_xp > 0
+    `;
     const countResult = await this.pool.query<CountRow>(
       `
         SELECT COUNT(*)::text AS count
-        FROM member_reaction_totals
-        WHERE guild_id = $1 AND ${column} > 0
+        ${eligibleTotals}
       `,
       [input.guildId],
     );
@@ -299,8 +303,7 @@ export class PostgresReactionService implements ReactionService {
     const result = await this.pool.query<LeaderboardRow>(
       `
         SELECT user_id, ${column}::text AS reaction_count
-        FROM member_reaction_totals
-        WHERE guild_id = $1 AND ${column} > 0
+        ${eligibleTotals}
         ORDER BY ${column} DESC, user_id ASC
         LIMIT $2 OFFSET $3
       `,

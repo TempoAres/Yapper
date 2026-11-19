@@ -10,6 +10,8 @@ import {
   leaderboardCommand,
   lastLeaderboardCommand,
   topCommand,
+  inactiveCommand,
+  oldXpLeaderboardCommand,
   xpLeaderboardCommand,
 } from "./leaderboard.js";
 import { leaderboardSummaryCommand } from "./leaderboard-summary.js";
@@ -38,6 +40,8 @@ export const commands: readonly BotCommand[] = [
   leaderboardCommand,
   lastLeaderboardCommand,
   leaderboardSummaryCommand,
+  inactiveCommand,
+  oldXpLeaderboardCommand,
   xpLeaderboardCommand,
   topCommand,
   recentCommand,

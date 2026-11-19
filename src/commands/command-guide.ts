@@ -17,7 +17,7 @@ const commandGroups = [
     name: "Level leaderboard",
     commands: "/lb all, /lb daily, /lb weekly, /lb monthly, /lb yearly, /lbs",
   },
-  { name: "XP leaderboard", commands: "/xplb" },
+  { name: "XP leaderboard", commands: "/xplb, /oldxplb, /inactive" },
   {
     name: "Previous leaderboards",
     commands: "/last daily, /last weekly, /last monthly, /last yearly",

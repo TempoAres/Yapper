@@ -5,6 +5,7 @@ export type LeaderboardScope =
   | "monthly"
   | "yearly";
 export type LeaderboardRecordScope = Exclude<LeaderboardScope, "all">;
+export type LeaderboardMembership = "active" | "all" | "inactive";
 export type LeaderboardKind = "current" | "previous" | "record";
 
 export const LEADERBOARD_PAGE_SIZE = 10;
@@ -69,6 +70,7 @@ export interface LeaderboardService {
     scope: LeaderboardScope;
     page: number;
     now: Date;
+    membership?: LeaderboardMembership;
   }): Promise<LeaderboardPage>;
 
   getRecordPage(input: {

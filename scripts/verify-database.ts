@@ -3,6 +3,7 @@ import { PostgresLeaderboardService } from "../src/database/leaderboard-service.
 import { PostgresLeaderboardAnnouncementDeliveryService } from "../src/database/leaderboard-announcement-service.js";
 import { PostgresMemberXpService } from "../src/database/member-xp-service.js";
 import { createDatabasePool } from "../src/database/pool.js";
+import { PostgresXpService } from "../src/database/postgres-xp-service.js";
 import { PostgresReactionService } from "../src/database/reaction-service.js";
 import { PostgresReminderService } from "../src/database/reminder-service.js";
 
@@ -116,6 +117,56 @@ async function verify(): Promise<void> {
       JSON.stringify(pinnedMonth.entries) ===
         JSON.stringify(previousMonth.entries),
       "Previous leaderboard pagination changed periods after another reset.",
+    );
+
+    const legacyOnlyUserId = "100000000000000003";
+    await pool.query(
+      `INSERT INTO guild_members (guild_id, user_id, legacy_xp_adjusted)
+       VALUES ($1, $2, 5000)`,
+      [guildId, legacyOnlyUserId],
+    );
+    const allTime = {
+      guildId,
+      scope: "all",
+      page: 1,
+      now: new Date("2026-08-11T12:00:00.000Z"),
+    } as const;
+    const active = await leaderboardService.getPage(allTime);
+    const original = await leaderboardService.getPage({ ...allTime, membership: "all" });
+    const inactive = await leaderboardService.getPage({ ...allTime, membership: "inactive" });
+    requireCondition(
+      active.participantCount === 2 &&
+        original.entries[0]?.userId === legacyOnlyUserId &&
+        inactive.participantCount === 1 &&
+        inactive.entries[0]?.userId === legacyOnlyUserId,
+      "The all-time and inactive lists returned incorrect member eligibility.",
+    );
+
+    const wins = await leaderboardService.getWinPage({ ...allTime, scope: "monthly" });
+    requireCondition(
+      wins.entries[0]?.userId === secondUserId,
+      "The monthly wins leaderboard returned the wrong winner.",
+    );
+    await new PostgresXpService(pool).award({
+      guildId,
+      userId: legacyOnlyUserId,
+      channelId: null,
+      messageId: null,
+      discordEventId: "verify-inactive-return",
+      amount: 20,
+      source: "message",
+      createdAt: allTime.now,
+    });
+    const afterAward = await leaderboardService.getPage(allTime);
+    const remainingInactive = await leaderboardService.getPage({
+      ...allTime,
+      membership: "inactive",
+    });
+    requireCondition(
+      afterAward.entries[0]?.userId === legacyOnlyUserId &&
+        afterAward.entries[0].xp === 5020 &&
+        remainingInactive.participantCount === 0,
+      "A new XP award did not move the member from inactive to active.",
     );
 
     const reactionService = new PostgresReactionService(pool);

@@ -4,6 +4,7 @@ import {
   LEADERBOARD_MAX_ENTRIES,
   LEADERBOARD_PAGE_SIZE,
   type LeaderboardEntry,
+  type LeaderboardMembership,
   type LeaderboardPage,
   type LeaderboardRecordScope,
   type LeaderboardResetSchedule,
@@ -75,8 +76,14 @@ function buildCurrentTotalsQuery(
   scope: LeaderboardScope,
   periodStart: string | null,
   periodEnd: string | null,
+  membership: LeaderboardMembership = "active",
 ): TotalsQuery {
   if (scope === "all") {
+    const eligibility: Record<LeaderboardMembership, string> = {
+      active: "new_bot_xp > 0",
+      all: "legacy_xp_adjusted + new_bot_xp > 0",
+      inactive: "new_bot_xp = 0",
+    };
     return {
       sql: `
         SELECT
@@ -87,7 +94,7 @@ function buildCurrentTotalsQuery(
           NULL::date AS record_end
         FROM guild_members
         WHERE guild_id = $1
-          AND legacy_xp_adjusted + new_bot_xp > 0
+          AND ${eligibility[membership]}
       `,
       parameters: [guildId],
     };
@@ -117,6 +124,7 @@ function buildCurrentTotalsQuery(
       INNER JOIN guild_members
         ON guild_members.guild_id = $1
         AND guild_members.user_id = period_totals.user_id
+        AND guild_members.new_bot_xp > 0
     `,
     parameters: [guildId, periodStart, periodEnd],
   };
@@ -188,6 +196,7 @@ function buildRecordTotalsQuery(
       INNER JOIN guild_members
         ON guild_members.guild_id = $1
         AND guild_members.user_id = best_periods.user_id
+        AND guild_members.new_bot_xp > 0
       WHERE best_periods.record_order = 1
     `,
     parameters: [guildId],
@@ -205,11 +214,12 @@ function buildWinTotalsQuery(
     sql: `
       WITH dated_totals AS (
         SELECT
-          user_id,
+          daily_xp_totals.user_id,
           ${startExpression} AS period_start,
           amount
         FROM daily_xp_totals
-        WHERE guild_id = $1
+        INNER JOIN guild_members USING (guild_id, user_id)
+        WHERE guild_id = $1 AND guild_members.new_bot_xp > 0
       ),
       period_totals AS (
         SELECT
@@ -287,6 +297,7 @@ export class PostgresLeaderboardService implements LeaderboardService {
     periodEnd: string | null;
     launchLimited: boolean;
     now: Date;
+    maxEntries?: number;
   }): Promise<LeaderboardPage> {
     if (!Number.isSafeInteger(input.page) || input.page < 1) {
       throw new RangeError("Leaderboard page must be a positive whole number.");
@@ -306,7 +317,7 @@ export class PostgresLeaderboardService implements LeaderboardService {
     );
     const visibleEntryCount = Math.min(
       participantCount,
-      LEADERBOARD_MAX_ENTRIES,
+      input.maxEntries ?? LEADERBOARD_MAX_ENTRIES,
     );
     const totalPages = Math.max(
       1,
@@ -363,6 +374,7 @@ export class PostgresLeaderboardService implements LeaderboardService {
     scope: LeaderboardScope;
     page: number;
     now: Date;
+    membership?: LeaderboardMembership;
   }): Promise<LeaderboardPage> {
     const settings = await this.loadGuildSettings(input.guildId);
     const period = calculateLeaderboardPeriod({
@@ -376,10 +388,14 @@ export class PostgresLeaderboardService implements LeaderboardService {
       input.scope,
       period.startDate,
       period.endDate,
+      input.membership,
     );
 
     return this.queryPage({
       kind: "current",
+      ...(input.scope === "all" && input.membership === "inactive"
+        ? { maxEntries: Number.POSITIVE_INFINITY }
+        : {}),
       scope: input.scope,
       page: input.page,
       totals,

@@ -30,7 +30,8 @@ simple architecture intended to be approachable for a first-time bot developer.
 - `/lb all|daily|weekly|monthly|yearly` level leaderboards with optional pages.
 - `/lbs` for the current daily, weekly, and monthly top three in one compact
   no-ping embed.
-- `/xplb [page]` for the paginated all-time XP leaderboard.
+- `/xplb [page]` for all-time XP, `/oldxplb [page]` to include legacy-only members,
+  and `/inactive [page]` to browse members with zero Yapper XP.
 - `/last daily|weekly|monthly|yearly` for the previous completed XP leaderboard.
 - `/top daily|weekly|monthly|yearly` for each member's best historical activity period.
 - `/wins daily|weekly|monthly|yearly` for completed XP leaderboard first-place finishes.
@@ -240,8 +241,14 @@ compact embed. Each section includes its own date window and shows the same
 level-gained and XP-gained values as the corresponding `/lb` period. Member
 mentions are rendered without sending notifications.
 
-`/xplb` shows the separate all-time XP leaderboard. It accepts an optional
-`page` from 1 to 10 and uses the same requester-bound pagination buttons.
+`/xplb` ranks members with positive Yapper XP by their adjusted MEE6 XP plus
+Yapper XP. `/oldxplb` uses the original all-time ranking, including members with
+only imported XP. Both commands accept an optional `page` from 1 to 10.
+
+`/inactive` lists all tracked members with zero Yapper XP, ordered by adjusted
+MEE6 XP. The list and member leaderboards read current XP whenever you open them
+or turn a page. Earning Yapper XP moves a member off `/inactive` and makes them
+eligible for the member leaderboards.
 
 `/last` shows the XP rankings for the previous completed calendar period:
 

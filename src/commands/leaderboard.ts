@@ -32,7 +32,18 @@ import { calculateLevelProgress } from "../services/xp/level-curve.js";
 
 const buttonPrefix = "yapper:lb";
 type LeaderboardButtonAction = "first" | "previous" | "next" | "last";
-type LeaderboardView = "level" | "record" | "xp" | "previous";
+const allTimeXpCommands = {
+  xp: "xplb",
+  oldxp: "oldxplb",
+  inactive: "inactive",
+} as const;
+
+type AllTimeXpView = keyof typeof allTimeXpCommands;
+type LeaderboardView = "level" | "record" | "previous" | AllTimeXpView;
+
+function isAllTimeXpView(view: LeaderboardView): view is AllTimeXpView {
+  return Object.hasOwn(allTimeXpCommands, view);
+}
 
 const scopeLabels: Record<LeaderboardScope, string> = {
   all: "All-time",
@@ -83,11 +94,11 @@ export function createLeaderboardImageRows(
       };
     }
 
-    if (view === "xp") {
+    if (isAllTimeXpView(view)) {
       return {
         rank: entry.rank,
         userId: entry.userId,
-        detail: `XP: ${formatXp(entry.allTimeXp)}`,
+        detail: `${view === "inactive" ? "Imported XP" : "XP"}: ${formatXp(entry.allTimeXp)}`,
       };
     }
 
@@ -145,29 +156,29 @@ export interface LeaderboardButtonRequest {
 export function parseLeaderboardButton(
   customId: string,
 ): LeaderboardButtonRequest | null {
-  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp|previous):(all|daily|weekly|monthly|yearly):(\d{1,2}):(\d{17,20})(?::(\d{4}-\d{2}-\d{2}))?$/.exec(
+  const match = /^yapper:lb:(first|previous|next|last):(level|record|xp|oldxp|inactive|previous):(all|daily|weekly|monthly|yearly):(\d+):(\d{17,20})(?::(\d{4}-\d{2}-\d{2}))?$/.exec(
     customId,
   );
 
   const action = match?.[1];
-  const view = match?.[2];
+  const view = match?.[2] as LeaderboardView | undefined;
   const scope = match?.[3];
   const rawPage = match?.[4];
   const requesterId = match?.[5];
   const periodEnd = match?.[6];
 
-  if (!action || !scope || !rawPage || !requesterId) {
+  if (!action || !view || !scope || !rawPage || !requesterId) {
     return null;
   }
 
   const page = Number(rawPage);
 
   if (
-    !Number.isInteger(page) ||
+    !Number.isSafeInteger(page) ||
     page < 1 ||
-    page > 10 ||
+    (view !== "inactive" && page > 10) ||
     ((view === "record" || view === "previous") && scope === "all") ||
-    (view === "xp" && scope !== "all") ||
+    (isAllTimeXpView(view) && scope !== "all") ||
     (view === "previous") !== (periodEnd !== undefined)
   ) {
     return null;
@@ -175,7 +186,7 @@ export function parseLeaderboardButton(
 
   return {
     action: action as LeaderboardButtonAction,
-    view: view as LeaderboardView,
+    view,
     scope: scope as LeaderboardScope,
     page,
     requesterId,
@@ -258,22 +269,29 @@ export async function buildLeaderboardResponse(
   profiles: ReadonlyMap<string, LeaderboardMemberProfile> = new Map(),
 ): Promise<InteractionEditReplyOptions> {
   const rows = createLeaderboardImageRows(page, view);
+  const xpTitles: Record<AllTimeXpView, string> = {
+    xp: "All-time XP Leaderboard",
+    oldxp: "All-time XP Leaderboard (Includes Legacy-only Members)",
+    inactive: "Inactive Members",
+  };
   const image = await renderLeaderboardImage({
     rows,
     profiles,
     emptyMessage:
-      view === "record"
-        ? "No activity records have been recorded yet."
-        : view === "xp"
-          ? "No XP has been recorded for this leaderboard yet."
-        : "No activity has been recorded for this leaderboard yet.",
+      view === "inactive"
+        ? "No members with zero Yapper XP."
+        : view === "record"
+          ? "No activity records have been recorded yet."
+          : isAllTimeXpView(view)
+            ? "No XP has been recorded for this leaderboard yet."
+            : "No activity has been recorded for this leaderboard yet.",
   });
   const fileName = `yapper-${view}-${page.scope}-page-${page.page}.png`;
   const title =
     view === "record"
       ? `${scopeLabels[page.scope]} Activity Records`
-      : view === "xp"
-        ? "All-time XP Leaderboard"
+      : isAllTimeXpView(view)
+        ? xpTitles[view]
         : view === "previous"
           ? `Last ${scopeLabels[page.scope]} XP Leaderboard`
           : `${scopeLabels[page.scope]} Level Leaderboard`;
@@ -281,14 +299,16 @@ export async function buildLeaderboardResponse(
     .setColor(
       view === "record"
         ? yapperColors.magenta
-        : view === "xp"
+        : isAllTimeXpView(view)
           ? yapperColors.violet
           : yapperColors.cyan,
     )
     .setTitle(title)
     .setImage(`attachment://${fileName}`)
     .setFooter({
-      text: `Page ${page.page}/${page.totalPages} • Top ${page.visibleEntryCount} of ${page.participantCount}`,
+      text: view === "inactive"
+        ? `Page ${page.page}/${page.totalPages} • ${formatXp(page.participantCount)} members`
+        : `Page ${page.page}/${page.totalPages} • Top ${page.visibleEntryCount} of ${page.participantCount}`,
     })
     .setTimestamp(page.generatedAt);
   const contextLine = createContextLine(page);
@@ -339,6 +359,8 @@ async function loadPage(
     scope: input.scope,
     page: input.page,
     now: new Date(),
+    ...(input.view === "oldxp" ? { membership: "all" as const } : {}),
+    ...(input.view === "inactive" ? { membership: "inactive" as const } : {}),
   });
 }
 
@@ -354,8 +376,8 @@ export async function handleLeaderboardButton(
 
   if (interaction.user.id !== request.requesterId) {
     const command =
-      request.view === "xp"
-        ? "/xplb"
+      isAllTimeXpView(request.view)
+        ? `/${allTimeXpCommands[request.view]}`
         : request.view === "previous"
           ? `/last ${request.scope}`
           : "/lb all";
@@ -551,48 +573,68 @@ function configurePreviousSubcommand(
     );
 }
 
-export const xpLeaderboardCommand: BotCommand = {
-  data: new SlashCommandBuilder()
-    .setName("xplb")
-    .setDescription("Show the server's all-time XP leaderboard.")
-    .addIntegerOption((option) =>
-      option
-        .setName("page")
-        .setDescription("Optional page from 1 to 10.")
-        .setMinValue(1)
-        .setMaxValue(10),
-    ),
-  async execute(interaction, context) {
-    if (!interaction.guildId) {
-      await interaction.reply({
-        content: "XP leaderboards can only be used inside a server.",
-        flags: MessageFlags.Ephemeral,
+function createXpLeaderboardCommand(
+  view: AllTimeXpView,
+  description: string,
+): BotCommand {
+  return {
+    data: new SlashCommandBuilder()
+      .setName(allTimeXpCommands[view])
+      .setDescription(description)
+      .addIntegerOption((option) => {
+        option.setName("page").setMinValue(1);
+        if (view === "inactive") {
+          return option.setDescription("Optional page number.");
+        }
+        return option.setDescription("Optional page from 1 to 10.").setMaxValue(10);
+      }),
+    async execute(interaction, context) {
+      if (!interaction.guildId) {
+        await interaction.reply({
+          content: "XP leaderboards can only be used inside a server.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.deferReply();
+      const page = await loadPage(context, {
+        guildId: interaction.guildId,
+        view,
+        scope: "all",
+        page: interaction.options.getInteger("page") ?? 1,
       });
-      return;
-    }
+      const profiles = await resolveLeaderboardProfiles(
+        interaction.client,
+        page.entries.map((entry) => entry.userId),
+      );
 
-    await interaction.deferReply();
-    const page = await loadPage(context, {
-      guildId: interaction.guildId,
-      view: "xp",
-      scope: "all",
-      page: interaction.options.getInteger("page") ?? 1,
-    });
-    const profiles = await resolveLeaderboardProfiles(
-      interaction.client,
-      page.entries.map((entry) => entry.userId),
-    );
+      await interaction.editReply(
+        await buildLeaderboardResponse(
+          page,
+          interaction.user.id,
+          view,
+          profiles,
+        ),
+      );
+    },
+  };
+}
 
-    await interaction.editReply(
-      await buildLeaderboardResponse(
-        page,
-        interaction.user.id,
-        "xp",
-        profiles,
-      ),
-    );
-  },
-};
+export const xpLeaderboardCommand = createXpLeaderboardCommand(
+  "xp",
+  "Show all-time XP for members with Yapper XP.",
+);
+
+export const oldXpLeaderboardCommand = createXpLeaderboardCommand(
+  "oldxp",
+  "Show all-time XP including members with only imported MEE6 XP.",
+);
+
+export const inactiveCommand = createXpLeaderboardCommand(
+  "inactive",
+  "List members with zero Yapper XP, ordered by imported XP.",
+);
 
 export const topCommand: BotCommand = {
   data: new SlashCommandBuilder()

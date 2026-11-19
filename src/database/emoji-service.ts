@@ -241,10 +241,15 @@ export class PostgresEmojiService implements EmojiService {
       period.startDate && period.endDate
         ? [input.guildId, period.startDate, period.endDate]
         : [input.guildId];
+    const memberJoin = input.metric === "users"
+      ? "INNER JOIN guild_members USING (guild_id, user_id)"
+      : "";
+    const memberFilter = input.metric === "users" ? "AND guild_members.new_bot_xp > 0" : "";
     const totalsQuery = `
       SELECT ${source.keyColumn} AS leaderboard_key, SUM(amount)::bigint AS total
       FROM ${source.table}
-      WHERE guild_id = $1 ${dateFilter}
+      ${memberJoin}
+      WHERE guild_id = $1 ${dateFilter} ${memberFilter}
       GROUP BY ${source.keyColumn}
       HAVING SUM(amount) > 0
     `;
